@@ -1,0 +1,18 @@
+{
+	"name": "db-code",
+	"private": true,
+	"type": "module",
+	"scripts": {},
+	"devDependencies": {
+		"@roenlie/eslint-config": "^1.3.3",
+		"@roenlie/package-toolbox": "^1.0.11",
+		"@roenlie/tsconfig": "^1.0.5",
+		"@types/node": "^22.1.0",
+		"tslib": "^2.6.3",
+		"typescript": "^5.5.4"
+	},
+	"packageManager": "pnpm@9.0.6",
+	"engines": {
+		"node": ">=20"
+	}
+}

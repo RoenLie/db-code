@@ -1,0 +1,210 @@
+{
+	"name": "db-code",
+	"displayName": "db-code",
+	"description": "db-code for VS Code",
+	"version": "0.0.1",
+	"publisher": "roenlie",
+	"engines": {
+		"vscode": "^1.74.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"type": "module",
+	"main": "./dist/extension.cjs",
+	"contributes": {
+		"commands": [
+			{
+				"command": "dbCode.selectDomain",
+				"title": "Select a domain to explore code in."
+			},
+			{
+				"command": "samples.quickInput",
+				"title": "Quick Input Samples"
+			},
+			{
+				"command": "nodeDependencies.refreshEntry",
+				"title": "Refresh",
+				"icon": {
+					"light": "resources/light/refresh.svg",
+					"dark": "resources/dark/refresh.svg"
+				}
+			},
+			{
+				"command": "nodeDependencies.addEntry",
+				"title": "Add"
+			},
+			{
+				"command": "nodeDependencies.editEntry",
+				"title": "Edit",
+				"icon": {
+					"light": "resources/light/edit.svg",
+					"dark": "resources/dark/edit.svg"
+				}
+			},
+			{
+				"command": "nodeDependencies.deleteEntry",
+				"title": "Delete"
+			},
+			{
+				"command": "ftpExplorer.refresh",
+				"title": "Refresh",
+				"icon": {
+					"light": "resources/light/refresh.svg",
+					"dark": "resources/dark/refresh.svg"
+				}
+			},
+			{
+				"command": "ftpExplorer.openFtpResource",
+				"title": "Open FTP Resource"
+			},
+			{
+				"command": "ftpExplorer.revealResource",
+				"title": "Reveal in FTP View"
+			},
+			{
+				"command": "jsonOutline.refresh",
+				"title": "Refresh",
+				"icon": {
+					"light": "resources/light/refresh.svg",
+					"dark": "resources/dark/refresh.svg"
+				}
+			},
+			{
+				"command": "jsonOutline.refreshNode",
+				"title": "Refresh",
+				"icon": {
+					"light": "resources/light/refresh.svg",
+					"dark": "resources/dark/refresh.svg"
+				}
+			},
+			{
+				"command": "jsonOutline.renameNode",
+				"title": "Rename"
+			},
+			{
+				"command": "fileExplorer.refreshFile",
+				"title": "Refresh",
+				"icon": {
+					"light": "resources/light/refresh.svg",
+					"dark": "resources/dark/refresh.svg"
+				}
+			},
+			{
+				"command": "fileExplorer.openFile",
+				"title": "Open File"
+			},
+			{
+				"command": "testView.reveal",
+				"title": "Test View: Reveal"
+			},
+			{
+				"command": "testView.changeTitle",
+				"title": "Test View: Change Title"
+			},
+			{
+				"command": "calicoColors.addColor",
+				"category": "Calico Colors",
+				"title": "Add Color"
+			},
+			{
+				"command": "calicoColors.clearColors",
+				"category": "Calico Colors",
+				"title": "Clear Colors",
+				"icon": "$(clear-all)"
+			}
+		],
+		"menus": {
+			"commandPalette": [
+				{
+					"command": "ftpExplorer.revealResource"
+				}
+			],
+			"view/title": [
+				{
+					"command": "nodeDependencies.refreshEntry",
+					"when": "view == nodeDependencies",
+					"group": "navigation"
+				},
+				{
+					"command": "jsonOutline.renameNode",
+					"when": "view == jsonOutline"
+				},
+				{
+					"command": "nodeDependencies.addEntry",
+					"when": "view == nodeDependencies"
+				},
+				{
+					"command": "jsonOutline.refresh",
+					"when": "view == jsonOutline",
+					"group": "navigation"
+				},
+				{
+					"command": "ftpExplorer.refresh",
+					"when": "view == ftpExplorer",
+					"group": "navigation"
+				},
+				{
+					"command": "calicoColors.clearColors",
+					"group": "navigation",
+					"when": "view == calicoColors.colorsView"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "nodeDependencies.editEntry",
+					"when": "view == nodeDependencies && viewItem == dependency",
+					"group": "inline"
+				},
+				{
+					"command": "nodeDependencies.deleteEntry",
+					"when": "view == nodeDependencies && viewItem == dependency"
+				},
+				{
+					"command": "jsonOutline.renameNode",
+					"when": "view == jsonOutline"
+				},
+				{
+					"command": "jsonOutline.refreshNode",
+					"when": "view == jsonOutline",
+					"group": "inline"
+				},
+				{
+					"command": "fileExplorer.refreshFile",
+					"when": "view == fileExplorer && viewItem == file",
+					"group": "inline"
+				}
+			]
+		},
+		"configuration": [
+			{
+				"title": "JSON Outline",
+				"properties": {
+					"jsonOutline.autorefresh": {
+						"type": "boolean",
+						"description": "Auto refresh the JSON outline view when the contents of the json file change.",
+						"default": false
+					}
+				}
+			}
+		]
+	},
+	"scripts": {
+		"vscode:prepublish": "pnpm build",
+		"build": "vite build",
+		"watch": "vite build --watch",
+		"lint": "eslint \"src/**/*.ts\""
+	},
+	"devDependencies": {
+		"@preact/signals-core": "^1.8.0",
+		"@roenlie/reflect-metadata": "^1.0.3",
+		"@types/ftp": "^0.3.36",
+		"@types/vscode": "^1.73.0",
+		"env-paths": "^3.0.0",
+		"ftp": "^0.3.10",
+		"inversify": "^6.0.2",
+		"mkdirp": "3.0.1",
+		"rimraf": "^6.0.1",
+		"vite": "^5.3.5"
+	}
+}

@@ -1,0 +1,13 @@
+.monaco-select-box {
+	width: 100%;
+	cursor: pointer;
+	border-radius: 2px;
+	background-color: var(--vscode-dropdown-background);
+	color: var(--vscode-dropdown-foreground);
+	border-color: var(--vscode-dropdown-border);
+
+	cursor: pointer;
+	min-width: 100px;
+	min-height: 18px;
+	padding: 2px 23px 2px 8px;
+}

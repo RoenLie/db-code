@@ -1,46 +1,6 @@
-import type { ControllerMethod, ExpressController } from '@roenlie/ferrite-server/app/file-routes.ts';
+import type { ExpressController } from '@roenlie/ferrite-server/app/file-routes.ts';
 import { SQLite } from '../app/database.ts';
-import { Endpoint, type EndpointRequest, type EndpointResponse } from '../app/endpoint.ts';
-
-
-const test: ControllerMethod = {
-	path:     '/api/code/test',
-	method:   'get',
-	handlers: [
-		(_req, res) => {
-			using db = new SQLite();
-
-			const files = db.prepare(`
-			SELECT * FROM modules;
-			`).all();
-
-			const content1 = db.prepare(`
-			SELECT
-				data ->> '$.contents' as contents
-			FROM
-				modules
-			WHERE
-				data ->> '$.name' = 'test1.ts';
-			`).get();
-
-			const content2 = db.prepare(`
-			SELECT
-				data ->> '$.name' as name,
-				data ->> '$.contents' as contents
-			FROM
-				modules
-			WHERE
-				data ->> '$.name' = 'test2.ts';
-			`).get();
-
-			res.send({
-				all: files,
-				content1,
-				content2,
-			});
-		},
-	],
-};
+import { Endpoint } from '../app/endpoint.ts';
 
 
 class GetAllPaths extends Endpoint {
@@ -110,6 +70,47 @@ class GetSubdomains extends Endpoint {
 		`).all(domain).map(r => r.subdomain);
 
 		this.response.send(files);
+	}
+
+}
+
+class GetAllDomainsAndSubdomains extends Endpoint {
+
+	protected override configure(): void {
+		this.get('/api/code/domains-and-subdomains');
+	}
+
+	protected override handle(): void | Promise<void> {
+		using db = new SQLite();
+
+		const transaction = db.transaction(() => {
+			const domainMap = new Map<string, string[]>();
+
+			const domains = db.prepare<unknown[], { domain: string; }>(`
+			SELECT DISTINCT
+				data ->> '$.domain' as domain
+			FROM
+				modules;
+			`).all().map(r => r.domain);
+
+			for (const domain of domains) {
+				const subdomains = db.prepare<unknown[], { subdomain: string; }>(`
+				SELECT DISTINCT
+					data ->> '$.subdomain' as subdomain
+				FROM
+					modules
+				WHERE
+					data ->> '$.domain' = (?)
+				`).all(domain).map(r => r.subdomain);
+
+				domainMap.set(domain, subdomains);
+			}
+
+			return domainMap;
+		});
+
+
+		this.response.send([ ...transaction() ]);
 	}
 
 }
@@ -254,10 +255,10 @@ class CreateDemoData extends Endpoint {
 
 
 export default [
-	test,
 	GetAllPaths,
 	GetAllDomains,
 	GetSubdomains,
+	GetAllDomainsAndSubdomains,
 	GetModulesInSubdomain,
 	GetCodeModule,
 	CreateDemoData,

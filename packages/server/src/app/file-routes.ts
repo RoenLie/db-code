@@ -3,6 +3,7 @@ import { glob } from 'node:fs/promises';
 
 import { app } from '../app/main.js';
 import { basename, join, resolve } from 'path';
+import { Endpoint } from './endpoint.js';
 
 
 const registerCache = new Set<string>();
@@ -16,7 +17,7 @@ export interface ControllerMethod {
 }
 
 
-export type ExpressController = ControllerMethod[];
+export type ExpressController = (ControllerMethod | typeof Endpoint)[];
 
 
 export const registerControllers = async (
@@ -48,14 +49,17 @@ export const registerControllers = async (
 	const imports: ExpressController[] = await Promise.all(promises);
 
 	imports.forEach(methods => methods.forEach(m => {
-		if (isClass(m))
-			m = new m();
+		let method = m as ControllerMethod;
 
-		app[m.method](m.path, m.handlers);
+		if (isClass(m))
+			method = new m();
+
+		app[method.method](method.path, method.handlers);
 	}));
 };
 
-export const isClass = (obj: any): obj is new (...args: any) => any => {
+
+export const isClass = (obj: any): obj is new () => ControllerMethod => {
 	if (typeof obj !== 'function')
 		return false;
 

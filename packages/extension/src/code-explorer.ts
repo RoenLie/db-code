@@ -28,6 +28,7 @@ export class CodeExplorerView {
 		);
 	}
 
+
 	protected activeDomain = '';
 	protected activeSubdomain = '';
 	protected domainMap = new Map<string, string[]>();

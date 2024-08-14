@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
-import { Fiddle, DbCodeRepository } from './code-repository.ts';
+import { DbCodeRepository } from './code-repository.ts';
 import { existsSync, readFileSync } from 'fs';
+import { inject, injectable } from './inversify/injectable.ts';
 
 
 class ChangeState {
@@ -17,24 +18,29 @@ class ChangeState {
 }
 
 
+@injectable()
 export class DbCodeSourceControl implements vscode.Disposable {
 
-	private scm:              vscode.SourceControl;
-	private changedResources: vscode.SourceControlResourceGroup;
-	private repository:       DbCodeRepository;
+	private scm:               vscode.SourceControl;
+	private changedResources:  vscode.SourceControlResourceGroup;
+	private repository:        DbCodeRepository;
 	private _onRepositoryChange = new vscode.EventEmitter<any>();
-	private timeout?:         NodeJS.Timeout;
+	private timeout?:          NodeJS.Timeout;
+	protected workspaceFolder: vscode.WorkspaceFolder;
 
 	constructor(
-		protected context: vscode.ExtensionContext,
-		protected readonly workspaceFolder: vscode.WorkspaceFolder,
-	) {
+		@inject('context') protected context: vscode.ExtensionContext,
+	) {}
+
+	public initialize(workspaceFolder: vscode.WorkspaceFolder) {
+		this.workspaceFolder = workspaceFolder;
 		this.scm = vscode.scm.createSourceControl('db-code', 'Db Code', workspaceFolder.uri);
 		this.changedResources = this.scm.createResourceGroup('workingTree', 'Changes');
 		this.repository = new DbCodeRepository(workspaceFolder);
 		this.scm.quickDiffProvider = this.repository;
-		this.scm.inputBox.placeholder = 'Message is ignored by JS Fiddle :-]';
+		this.scm.inputBox.placeholder = 'Message';
 
+		const context = this.context;
 		const fileSystemWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(workspaceFolder, '*.*'));
 		fileSystemWatcher.onDidChange(uri => this.onResourceChange(uri), context.subscriptions);
 		fileSystemWatcher.onDidCreate(uri => this.onResourceChange(uri), context.subscriptions);
@@ -84,7 +90,7 @@ export class DbCodeSourceControl implements vscode.Disposable {
 		//}
 	}
 
-	public get onRepositoryChange(): vscode.Event<Fiddle> {
+	public get onRepositoryChange(): vscode.Event<any> {
 		return this._onRepositoryChange.event;
 	}
 

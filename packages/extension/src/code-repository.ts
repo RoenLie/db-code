@@ -4,16 +4,6 @@ import { globbySync } from 'globby';
 import { join } from 'node:path/posix';
 
 
-/** Represents one JSFiddle data and meta-data. */
-export class Fiddle {
-
-	constructor(public slug: string, public version: number) { }
-
-}
-
-
-export const JSFIDDLE_SCHEME = 'jsfiddle';
-
 export class DbCodeRepository implements QuickDiffProvider {
 
 	constructor(private workspaceFolder: WorkspaceFolder) { }

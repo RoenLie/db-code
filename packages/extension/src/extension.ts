@@ -10,9 +10,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	container.get('code-explorer-view');
 
 	const firstFolder = vscode.workspace.workspaceFolders?.[0];
-	if (firstFolder?.uri.path.includes(appName))
-		new DbCodeSourceControl(context, firstFolder);
-
+	if (firstFolder?.uri.path.includes(appName)) {
+		const scm = container.get<DbCodeSourceControl>('code-source-control');
+		scm.initialize(firstFolder);
+	}
 
 	//new DomainSelector(context);
 

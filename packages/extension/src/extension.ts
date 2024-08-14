@@ -2,14 +2,12 @@ import * as vscode from 'vscode';
 
 import { createManifest } from './inversify/container.ts';
 import { DbCodeSourceControl } from './code-source-control.ts';
-import { appName, paths } from './paths.ts';
+import { appName } from './paths.ts';
 
 
 export async function activate(context: vscode.ExtensionContext) {
 	const container = createManifest(context);
 	container.get('code-explorer-view');
-
-	console.log('folders!', vscode.workspace.workspaceFolders?.[0]);
 
 	const firstFolder = vscode.workspace.workspaceFolders?.[0];
 	if (firstFolder?.uri.path.includes(appName))

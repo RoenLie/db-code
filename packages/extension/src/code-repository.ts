@@ -1,30 +1,16 @@
-import type { QuickDiffProvider, CancellationToken, ProviderResult, WorkspaceFolder } from 'vscode';
-import { Uri, workspace, window, env } from 'vscode';
-import * as path from 'path';
+import type { QuickDiffProvider, WorkspaceFolder } from 'vscode';
+import { Uri } from 'vscode';
 import { globbySync } from 'globby';
-import { paths } from './paths.ts';
 import { join } from 'node:path/posix';
 
 
 /** Represents one JSFiddle data and meta-data. */
 export class Fiddle {
 
-	constructor(public slug: string, public version: number, public data: FiddleData) { }
+	constructor(public slug: string, public version: number) { }
 
 }
 
-/** Represents JSFiddle HTML, JavaScript and CSS text. */
-export interface FiddleData {
-	html: string;
-	js:   string;
-	css:  string;
-}
-
-export function areIdentical(first: FiddleData, second: FiddleData): boolean {
-	return first.html === second.html
-		&& first.css === second.css
-		&& first.js === second.js;
-}
 
 export const JSFIDDLE_SCHEME = 'jsfiddle';
 
@@ -32,7 +18,12 @@ export class DbCodeRepository implements QuickDiffProvider {
 
 	constructor(private workspaceFolder: WorkspaceFolder) { }
 
-	public provideOriginalResource?(uri: Uri, _token: CancellationToken): ProviderResult<Uri> {
+	protected scmIgnore: string[] = [
+		//
+		'tsconfig.json',
+	];
+
+	public provideOriginalResource(uri: Uri): Uri {
 		const path = uri.path;
 		let originalUri = uri;
 
@@ -49,7 +40,11 @@ export class DbCodeRepository implements QuickDiffProvider {
 		const pattern = join(this.workspaceFolder.uri.fsPath, '**').replaceAll('\\', '/');
 		const files = globbySync(pattern, { onlyFiles: true });
 
-		return files.map(file => Uri.file(file));
+		const filteredFiles = files.filter(file => {
+			return !this.scmIgnore.some(pattern => file.includes(pattern));
+		});
+
+		return filteredFiles.map(file => Uri.file(file));
 	}
 
 }

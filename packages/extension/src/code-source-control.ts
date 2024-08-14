@@ -1,27 +1,35 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { Fiddle, DbCodeRepository } from './code-repository.ts';
+import { existsSync, readFileSync } from 'fs';
 
 
-export const CONFIGURATION_FILE = '.jsfiddle';
+class ChangeState {
+
+	public isNew = false;
+	public isDeleted = false;
+	public isModified = false;
+	public get state() {
+		return this.isNew ? 'new'
+			: this.isDeleted ? 'deleted'
+				: 'modified';
+	}
+
+}
+
 
 export class DbCodeSourceControl implements vscode.Disposable {
 
-	private scm:                 vscode.SourceControl;
-	private changedResources:    vscode.SourceControlResourceGroup;
-	private repository:          DbCodeRepository;
-	private latestFiddleVersion: number = Number.POSITIVE_INFINITY; // until actual value is established
+	private scm:              vscode.SourceControl;
+	private changedResources: vscode.SourceControlResourceGroup;
+	private repository:       DbCodeRepository;
 	private _onRepositoryChange = new vscode.EventEmitter<any>();
-	private timeout?:            NodeJS.Timeout;
+	private timeout?:         NodeJS.Timeout;
 
 	constructor(
-		context: vscode.ExtensionContext,
-		private readonly workspaceFolder: vscode.WorkspaceFolder,
+		protected context: vscode.ExtensionContext,
+		protected readonly workspaceFolder: vscode.WorkspaceFolder,
 	) {
-		console.log('got into the src control stuff');
-
-
-		this.scm = vscode.scm.createSourceControl('db-code', 'hello', workspaceFolder.uri);
+		this.scm = vscode.scm.createSourceControl('db-code', 'Db Code', workspaceFolder.uri);
 		this.changedResources = this.scm.createResourceGroup('workingTree', 'Changes');
 		this.repository = new DbCodeRepository(workspaceFolder);
 		this.scm.quickDiffProvider = this.repository;
@@ -35,61 +43,16 @@ export class DbCodeSourceControl implements vscode.Disposable {
 		context.subscriptions.push(this.scm);
 		context.subscriptions.push(fileSystemWatcher);
 
-		// clone fiddle to the local workspace
-		//this.setFiddle(fiddle, download);
-
-		//if (this.fiddle.version === undefined || Number.isNaN(this.fiddle.version))
-		//	this.establishVersion();
-		//else
-		//	this.refresh();
+		this.tryUpdateChangedGroup();
 	}
-
-	//static async fromFiddleId(
-	//	id: string,
-	//	context: vscode.ExtensionContext,
-	//	workspaceFolder: vscode.WorkspaceFolder,
-	//	overwrite: boolean,
-	//): Promise<FiddleSourceControl> {
-	//	const fiddleConfiguration = parseFiddleId(id);
-
-	//	return await FiddleSourceControl.fromConfiguration(fiddleConfiguration, workspaceFolder, context, overwrite);
-	//}
-
-	//static async fromConfiguration(
-	//	configuration: FiddleConfiguration,
-	//	workspaceFolder: vscode.WorkspaceFolder,
-	//	context: vscode.ExtensionContext,
-	//	overwrite: boolean,
-	//): Promise<FiddleSourceControl> {
-	//	return await FiddleSourceControl.fromFiddle(
-	//		configuration.slug,
-	//		configuration.version,
-	//		workspaceFolder,
-	//		context,
-	//		overwrite,
-	//	);
-	//}
-
-	//private static async fromFiddle(
-	//	fiddleSlug: string,
-	//	fiddleVersion: number,
-	//	workspaceFolder: vscode.WorkspaceFolder,
-	//	context: vscode.ExtensionContext,
-	//	overwrite: boolean,
-	//): Promise<FiddleSourceControl> {
-	//	const fiddle = await downloadFiddle(fiddleSlug, fiddleVersion);
-	//	const workspacePath = workspaceFolder.uri.fsPath;
-
-	//	return new FiddleSourceControl(context, workspaceFolder, fiddle, overwrite);
-	//}
 
 	private refreshStatusBar() {
 		this.scm.statusBarCommands = [
 			{
-				'command':   'extension.source-control.checkout',
-				'arguments': [ this ],
-				'title':     `↕ something #thething / ${ this.latestFiddleVersion }`,
-				'tooltip':   'Checkout another version of this fiddle.',
+				command:   'extension.source-control.checkout',
+				arguments: [ this ],
+				title:     `↕ Here is a title`,
+				tooltip:   'Checkout another version of this fiddle.',
 			},
 		];
 	}
@@ -121,107 +84,6 @@ export class DbCodeSourceControl implements vscode.Disposable {
 		//}
 	}
 
-	//private async getLocalResourceText(extension: string) {
-	//	const document = await vscode.workspace
-	//		.openTextDocument(this.fiddleRepository.createLocalResourcePath(extension));
-
-	//	return document.getText();
-	//}
-
-	/**
-	 * Throws away all local changes and resets all files to the checked out version of the repository.
-	 */
-	//resetFilesToCheckedOutVersion(): void {
-	//	this.resetFile('html');
-	//	this.resetFile('css');
-	//	this.resetFile('js');
-	//}
-
-	/** Resets the given local file content to the checked-out version. */
-	//private async resetFile(extension: string): Promise<void> {
-	//	const filePath = this.fiddleRepository.createLocalResourcePath(extension);
-	//	await afs.writeFile(filePath, this.fiddle.data[extension]);
-	//}
-
-	//public async tryCheckout(newVersion: number | undefined): Promise<void> {
-	//	if (!Number.isFinite(this.latestFiddleVersion))
-	//		return;
-
-	//	if (newVersion === undefined) {
-	//		const allVersions = [ ...Array(this.latestFiddleVersion + 1).keys() ]
-	//			.map(ver => new VersionQuickPickItem(ver, ver === this.fiddle.version));
-	//		const newVersionPick = await vscode.window.showQuickPick(allVersions, { canPickMany: false, placeHolder: 'Select a version...' });
-	//		if (newVersionPick)
-	//			newVersion = newVersionPick.version;
-
-	//		else
-	//			return;
-	//	}
-
-	//	if (newVersion === this.fiddle.version)
-	//		return;  // the same version was selected
-
-	//	if (this.changedResources.resourceStates.length) {
-	//		const changedResourcesCount = this.changedResources.resourceStates.length;
-	//		vscode.window.showErrorMessage(`There is one or more changed resources. Discard or commit your local changes before checking out another version.`);
-	//	}
-	//	else {
-	//		try {
-	//			const newFiddle = await downloadFiddle(this.fiddle.slug, newVersion);
-	//			this.setFiddle(newFiddle, true);
-	//		}
-	//		catch (ex) {
-	//			vscode.window.showErrorMessage(ex);
-	//		}
-	//	}
-	//}
-
-	//private setFiddle(newFiddle: Fiddle, overwrite: boolean) {
-	//	if (newFiddle.version > this.latestFiddleVersion)
-	//		this.latestFiddleVersion = newFiddle.version;
-
-	//	this.fiddle = newFiddle;
-	//	if (overwrite)
-	//		this.resetFilesToCheckedOutVersion();  // overwrite local file content
-
-	//	this._onRepositoryChange.fire(this.fiddle);
-	//	this.refreshStatusBar();
-
-	//	this.saveCurrentConfiguration();
-	//}
-
-	//getFiddle(): Fiddle {
-	//	return this.fiddle;
-	//}
-
-	getWorkspaceFolder(): vscode.WorkspaceFolder {
-		return this.workspaceFolder;
-	}
-
-	getSourceControl(): vscode.SourceControl {
-		return this.scm;
-	}
-
-	getRepository(): DbCodeRepository {
-		return this.repository;
-	}
-
-	/** save configuration for later VS Code sessions */
-	//private saveCurrentConfiguration(): void {
-	//	const fiddleConfiguration: FiddleConfiguration = {
-	//		slug:       this.fiddle.slug,
-	//		version:    this.fiddle.version,
-	//		downloaded: true,
-	//	};
-
-	//	FiddleSourceControl.saveConfiguration(this.workspaceFolder.uri, fiddleConfiguration);
-	//}
-
-	//static saveConfiguration(workspaceFolderUri: vscode.Uri, fiddleConfiguration: FiddleConfiguration): void {
-	//	const fiddleConfigurationString = JSON.stringify(fiddleConfiguration);
-	//	afs.writeFile(path.join(workspaceFolderUri.fsPath, CONFIGURATION_FILE), Buffer.from(fiddleConfigurationString, UTF8));
-	//}
-
 	public get onRepositoryChange(): vscode.Event<Fiddle> {
 		return this._onRepositoryChange.event;
 	}
@@ -238,37 +100,45 @@ export class DbCodeSourceControl implements vscode.Disposable {
 			await this.updateChangedGroup();
 		}
 		catch (ex) {
+			console.error(ex);
 			vscode.window.showErrorMessage(ex as string);
 		}
 	}
 
-	/** This is where the source control determines, which documents were updated, removed, and theoretically added. */
+	/** This is where the source control determines, which documents were updated, removed, or added. */
 	public async updateChangedGroup(): Promise<void> {
 		// for simplicity we ignore which document was changed in this event and scan all of them
 		const changedResources: vscode.SourceControlResourceState[] = [];
-
 		const uris = this.repository.provideSourceControlledResources();
 
-		for (const uri of uris) {
-			//let isDirty: boolean;
-			//let wasDeleted: boolean;
+		for (const localUri of uris) {
+			const remoteUri = this.repository.provideOriginalResource(localUri);
 
-			//const pathExists = await afs.exists(uri.fsPath);
+			const state = new ChangeState();
+			const remotePathExists = existsSync(remoteUri.fsPath);
+			const localPathExists = existsSync(localUri.fsPath);
 
-			//if (pathExists) {
-			//	const document = await vscode.workspace.openTextDocument(uri);
-			//	isDirty = this.isDirty(document);
-			//	wasDeleted = false;
-			//}
-			//else {
-			//	isDirty = true;
-			//	wasDeleted = true;
-			//}
+			if (!remotePathExists && localPathExists) {
+				state.isNew = true;
+				state.isModified = true;
+			}
+			else if (remotePathExists && localPathExists) {
+				const remoteContent = readFileSync(remoteUri.fsPath, 'utf-8');
+				const localContent = readFileSync(localUri.fsPath, 'utf-8');
 
-			//if (isDirty) {
-			//	const resourceState = this.toSourceControlResourceState(uri, wasDeleted);
-			//	changedResources.push(resourceState);
-			//}
+				state.isModified = remoteContent.replace('\r', '') !== localContent.replace('\r', '');
+			}
+			else {
+				state.isDeleted = true;
+				state.isModified = true;
+			}
+
+			if (state.isModified) {
+				const resourceState = this
+					.toSourceControlResourceState(remoteUri, localUri, state);
+
+				changedResources.push(resourceState);
+			}
 		}
 
 		this.changedResources.resourceStates = changedResources;
@@ -277,40 +147,38 @@ export class DbCodeSourceControl implements vscode.Disposable {
 		this.scm.count = this.changedResources.resourceStates.length;
 	}
 
-	/** Determines whether the resource is different, regardless of line endings. */
-	public isDirty(doc: vscode.TextDocument): boolean {
-		return true;
+	public toSourceControlResourceState(
+		remoteUri: vscode.Uri,
+		localUri: vscode.Uri,
+		state: ChangeState,
+	): vscode.SourceControlResourceState {
+		const original = state.isNew ? localUri : remoteUri;
+		const local = state.isDeleted ? remoteUri : localUri;
+		let title = localUri.path.split('Code/local').at(-1) + ' ↔ ';
+		title += state.state.replace(/^\w/, str => str.toUpperCase());
 
-		//const originalText = this.fiddle.data[toExtension(doc.uri)];
+		const resourceState: vscode.SourceControlResourceState = {
+			resourceUri: localUri,
+			command:     {
+				title:     'Show changes',
+				command:   'vscode.diff',
+				arguments: [ original, local, title ],
+			},
+			decorations: {
+				strikeThrough: state.isDeleted,
+				// TODO
+				// This is where we add icons depending on the state to show deleted, modified or new.
+				iconPath:      vscode.Uri.joinPath(
+					this.context.extensionUri,
+					'resources',
+					'light',
+					'dependency.svg',
+				),
+			},
+		};
 
-		//return originalText.replace('\r', '') !== doc.getText().replace('\r', '');
+		return resourceState;
 	}
-
-	//public toSourceControlResourceState(docUri: vscode.Uri, deleted: boolean): vscode.SourceControlResourceState {
-	//	const repositoryUri = this.fiddleRepository.provideOriginalResource(docUri, null);
-
-	//	const fiddlePart = toExtension(docUri).toUpperCase();
-
-	//	const command: vscode.Command = !deleted
-	//		? {
-	//			title:     'Show changes',
-	//			command:   'vscode.diff',
-	//			arguments: [ repositoryUri, docUri, `JSFiddle#${ this.fiddle.slug } ${ fiddlePart } ↔ Local changes` ],
-	//			tooltip:   'Diff your changes',
-	//		}
-	//		: null;
-
-	//	const resourceState: vscode.SourceControlResourceState = {
-	//		resourceUri: docUri,
-	//		command:     command,
-	//		decorations: {
-	//			strikeThrough: deleted,
-	//			tooltip:       'File was locally deleted.',
-	//		},
-	//	};
-
-	//	return resourceState;
-	//}
 
 	/**
 	 * Refresh is used when the information on the server may have changed.
@@ -333,65 +201,9 @@ export class DbCodeSourceControl implements vscode.Disposable {
 	//	this.refreshStatusBar();
 	//}
 
-	/**
-	 * Determines which version was checked out and finds the index of the latest version.
-	 *
-	 * When a fiddle is open by the hash code, the latest version is downloaded,
-	 * but extension does not know what version it is.
-	 */
-	//async establishVersion(): Promise<void> {
-	//	let version = 0;
-	//	let latestVersion = Number.NaN;
-	//	let currentFiddle: Fiddle | undefined = undefined;
-	//	while (true) {
-	//		try {
-	//			const latestFiddle = await downloadFiddle(this.fiddle.slug, version);
-	//			latestVersion = version;
-	//			version++;
-	//			if (areIdentical(this.fiddle.data, latestFiddle.data))
-	//				currentFiddle = latestFiddle;
-	//		}
-	//		catch (ex) {
-	//			// typically the ex.statusCode == 404, when there is no further version
-	//			break;
-	//		}
-	//	}
-
-	//	this.latestFiddleVersion = latestVersion;
-
-	//	// now we know the version of the current fiddle, let's set it
-	//	if (currentFiddle)
-	//		this.setFiddle(currentFiddle, false);
-	//}
-
-	/** Opens the fiddle in the default browser. */
-	//openInBrowser() {
-	//	const url = 'https://jsfiddle.net/' + toFiddleId(this.fiddle.slug, this.fiddle.version);
-	//	vscode.env.openExternal(vscode.Uri.parse(url));
-	//}
-
-	dispose() {
+	public dispose() {
 		this._onRepositoryChange.dispose();
 		this.scm.dispose();
-	}
-
-}
-
-class VersionQuickPickItem implements vscode.QuickPickItem {
-
-	constructor(public readonly version: number, public readonly picked: boolean) {
-	}
-
-	get label(): string {
-		return `Version ${ this.version }`;
-	}
-
-	get description(): string {
-		return this.picked ? '(currently checked-out)' : '';
-	}
-
-	get alwaysShow(): boolean {
-		return this.picked;
 	}
 
 }

@@ -163,6 +163,11 @@ export class DbCodeSourceControl implements vscode.Disposable {
 		let title = localUri.path.split('Code/local').at(-1) + ' ↔ ';
 		title += state.state.replace(/^\w/, str => str.toUpperCase());
 
+
+		// TODO, to correctly show a readonly of the original, we need to supply
+		// a textContentprovider that uses a custom uri prefix, so that opening the uri uses our custom doc provider.
+		// this should also allow showing an empty file as the original if we are adding a new file.
+		// and a empty local file when we are deleting.
 		const resourceState: vscode.SourceControlResourceState = {
 			resourceUri: localUri,
 			command:     {
@@ -172,14 +177,7 @@ export class DbCodeSourceControl implements vscode.Disposable {
 			},
 			decorations: {
 				strikeThrough: state.isDeleted,
-				// TODO
-				// This is where we add icons depending on the state to show deleted, modified or new.
-				iconPath:      vscode.Uri.joinPath(
-					this.context.extensionUri,
-					'resources',
-					'light',
-					'dependency.svg',
-				),
+				faded:         false,
 			},
 		};
 

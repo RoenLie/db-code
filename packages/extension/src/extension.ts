@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { createManifest } from './inversify/container.ts';
 import { DbCodeSourceControl } from './code-source-control.ts';
 import { appName } from './paths.ts';
+import { DbCodeDecorations } from './decoration-provider.ts';
 
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -13,6 +14,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	if (firstFolder?.uri.path.includes(appName)) {
 		const scm = container.get<DbCodeSourceControl>('code-source-control');
 		scm.initialize(firstFolder);
+
+		context.subscriptions.push(new DbCodeDecorations());
 	}
 
 	//new DomainSelector(context);

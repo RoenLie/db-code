@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { DbCodeRepository } from './code-repository.ts';
 import { existsSync, readFileSync } from 'fs';
 import { inject, injectable } from './inversify/injectable.ts';
+import type RemoteContentProvider from './remote-content-provider.ts';
 
 
 class ChangeState {
@@ -30,7 +31,7 @@ export class DbCodeSourceControl implements vscode.Disposable {
 
 	constructor(
 		@inject('context') protected context: vscode.ExtensionContext,
-	) {}
+	) { }
 
 	public initialize(workspaceFolder: vscode.WorkspaceFolder) {
 		this.workspaceFolder = workspaceFolder;
@@ -158,7 +159,6 @@ export class DbCodeSourceControl implements vscode.Disposable {
 		localUri: vscode.Uri,
 		state: ChangeState,
 	): vscode.SourceControlResourceState {
-		const original = state.isNew ? localUri : remoteUri;
 		const local = state.isDeleted ? remoteUri : localUri;
 		let title = localUri.path.split('Code/local').at(-1) + ' ↔ ';
 		title += state.state.replace(/^\w/, str => str.toUpperCase());
@@ -173,7 +173,7 @@ export class DbCodeSourceControl implements vscode.Disposable {
 			command:     {
 				title:     'Show changes',
 				command:   'vscode.diff',
-				arguments: [ original, local, title ],
+				arguments: [ remoteUri, local, title ],
 			},
 			decorations: {
 				strikeThrough: state.isDeleted,

@@ -167,6 +167,7 @@ export class CodeExplorerView {
 				},
 				'files.exclude': {
 					'**/tsconfig.json': true,
+					'**/.dbcode':       true,
 				},
 			},
 		}, undefined, '\t'), 'utf-8');
@@ -224,6 +225,8 @@ export class CodeExplorerView {
 		await writeFile(join(localDir, 'tsconfig.json'), JSON.stringify({
 			extends: '../../../tsconfig.json',
 		}, undefined, '\t'), 'utf-8');
+
+		await writeFile(join(localDir, '.dbcode'), ``, 'utf-8');
 	}
 
 }

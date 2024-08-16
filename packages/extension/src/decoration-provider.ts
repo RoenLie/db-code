@@ -1,12 +1,19 @@
-import type { Event, FileDecorationProvider } from 'vscode';
+import type { Event, ExtensionContext, FileDecorationProvider } from 'vscode';
 import { window, Uri, Disposable, EventEmitter, FileDecoration, ThemeColor } from 'vscode';
+import { inject, injectable } from './inversify/injectable.ts';
 
 
+@injectable()
 export class DbCodeDecorations {
 
 	private disposables: Disposable[] = [];
 
-	constructor() {
+	constructor(
+		@inject('context') protected context: ExtensionContext,
+	) {}
+
+	public initialize() {
+		this.context.subscriptions.push(this);
 		this.disposables.push(
 			new DbCodeDecorationProvider(),
 		);

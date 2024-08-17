@@ -5,22 +5,22 @@ import { DbCodeSourceControl } from './code-source-control.ts';
 import { appName } from './paths.ts';
 import { DbCodeDecorations } from './decoration-provider.ts';
 import type RemoteContentProvider from './remote-content-provider.ts';
+import { CodeExplorerView } from './code-explorer.ts';
 
 
 export async function activate(context: vscode.ExtensionContext) {
 	const container = createManifest(context);
-	container.get('code-explorer-view');
+	container.get<CodeExplorerView>('code-explorer')
+		.initialize();
 
 	const firstFolder = vscode.workspace.workspaceFolders?.[0];
 	if (firstFolder?.uri.path.includes(appName)) {
-		const scm = container.get<DbCodeSourceControl>('code-source-control');
-		scm.initialize(firstFolder);
-
-		const remoteContentProvider = container.get<RemoteContentProvider>('remote-content-provider');
-		remoteContentProvider.initialize();
-
-		const codeDecorations = container.get<DbCodeDecorations>('code-decorations');
-		codeDecorations.initialize();
+		container.get<DbCodeSourceControl>('code-source-control')
+			.initialize(firstFolder);
+		container.get<RemoteContentProvider>('remote-content-provider')
+			.initialize();
+		container.get<DbCodeDecorations>('code-decorations')
+			.initialize();
 	}
 
 	//new DomainSelector(context);

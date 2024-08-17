@@ -22,16 +22,17 @@ export class CodeExplorerView {
 
 	constructor(
 		@inject('context') protected vsContext: ExtensionContext,
-	) {
-		vsContext.subscriptions.push(
-			commands.registerCommand('dbCode.selectDomain', this.showSelectDomainPicker, this),
-		);
-	}
-
+	) { }
 
 	protected activeDomain = '';
 	protected activeSubdomain = '';
 	protected domainMap = new Map<string, string[]>();
+
+	public initialize() {
+		this.vsContext.subscriptions.push(
+			commands.registerCommand('dbCode.selectDomain', this.showSelectDomainPicker, this),
+		);
+	}
 
 	protected async updateDomainsAndSubdomains(): Promise<Map<string, string[]>> {
 		const url = new URL('/api/code/domains-and-subdomains', 'http://localhost:42069');

@@ -116,27 +116,28 @@ export class DbCodeSourceControl implements vscode.Disposable {
 	public async updateChangedGroup(): Promise<void> {
 		// for simplicity we ignore which document was changed in this event and scan all of them
 		const changedResources: vscode.SourceControlResourceState[] = [];
-		const uris = this.repository.provideSourceControlledResources();
+		const { local, remote } = this.repository.provideSourceControlledResources();
 
-		for (const localUri of uris) {
+		// Iterate through all local files to check if they have been modified
+		// or new files have been created.
+		for (const localUri of local) {
 			const remoteUri = this.repository.provideOriginalResource(localUri);
 
 			const state = new ChangeState();
 			const remotePathExists = existsSync(remoteUri.fsPath);
-			const localPathExists = existsSync(localUri.fsPath);
 
-			if (!remotePathExists && localPathExists) {
-				state.isNew = true;
-				state.isModified = true;
-			}
-			else if (remotePathExists && localPathExists) {
+			if (remotePathExists) {
 				const remoteContent = readFileSync(remoteUri.fsPath, 'utf-8');
 				const localContent = readFileSync(localUri.fsPath, 'utf-8');
 
 				state.isModified = remoteContent.replace('\r', '') !== localContent.replace('\r', '');
+
+				// Remove the remote uri so that we don't iterate over it when checking for
+				// deleted files later.
+				remote.splice(remote.findIndex(r => r.fsPath === remoteUri.fsPath), 1);
 			}
 			else {
-				state.isDeleted = true;
+				state.isNew = true;
 				state.isModified = true;
 			}
 
@@ -148,9 +149,27 @@ export class DbCodeSourceControl implements vscode.Disposable {
 			}
 		}
 
+		// Iterate the remote Uris for files which have been deleted from local.
+		// This list has been reduced in length by trimming entries already checked above.
+		for (const remoteUri of remote) {
+			const localUri = this.repository.provideLocalResource(remoteUri);
+			const localPathExists = existsSync(localUri.fsPath);
+
+			if (!localPathExists) {
+				const state = new ChangeState();
+				state.isDeleted = true;
+
+				const resourceState = this
+					.toSourceControlResourceState(remoteUri, localUri, state);
+
+				changedResources.push(resourceState);
+			}
+		}
+
 		this.changedResources.resourceStates = changedResources;
 
-		// the number of modified resources needs to be assigned to the SourceControl.count filed to let VS Code show the number.
+		// the number of modified resources needs to be assigned to the SourceControl.count
+		// filed to let VS Code show the number.
 		this.scm.count = this.changedResources.resourceStates.length;
 	}
 
@@ -159,15 +178,10 @@ export class DbCodeSourceControl implements vscode.Disposable {
 		localUri: vscode.Uri,
 		state: ChangeState,
 	): vscode.SourceControlResourceState {
-		const local = state.isDeleted ? remoteUri : localUri;
+		const local = state.isDeleted ? DbCodeRepository.emptyRemoteUri : localUri;
 		let title = localUri.path.split('Code/local').at(-1) + ' ↔ ';
 		title += state.state.replace(/^\w/, str => str.toUpperCase());
 
-
-		// TODO, to correctly show a readonly of the original, we need to supply
-		// a textContentprovider that uses a custom uri prefix, so that opening the uri uses our custom doc provider.
-		// this should also allow showing an empty file as the original if we are adding a new file.
-		// and a empty local file when we are deleting.
 		const resourceState: vscode.SourceControlResourceState = {
 			resourceUri: localUri,
 			command:     {

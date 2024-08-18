@@ -7,6 +7,7 @@ import { paths } from './paths.ts';
 import { mkdir, writeFile } from 'fs/promises';
 import { $ } from './exec-shell.ts';
 import { existsSync } from 'node:fs';
+import type { Container } from 'inversify';
 
 
 interface Module {
@@ -22,6 +23,7 @@ export class CodeExplorerView {
 
 	constructor(
 		@inject('context') protected vsContext: ExtensionContext,
+		@inject('container') protected container: Container,
 	) { }
 
 	protected activeDomain = '';

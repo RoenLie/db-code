@@ -25,7 +25,7 @@ export class DbCodeRepository implements QuickDiffProvider {
 		if (path.includes('local')) {
 			originalUri = Uri.from({
 				scheme: RemoteContentProvider.scheme,
-				path:   path.replace('Code/local', 'Code/remote'),
+				path:   path.replace('Code/local', 'Corelde/remote'),
 			});
 		}
 

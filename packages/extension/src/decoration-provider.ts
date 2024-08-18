@@ -1,58 +1,60 @@
 import type { Event, ExtensionContext, FileDecorationProvider } from 'vscode';
-import { window, Uri, Disposable, EventEmitter, FileDecoration, ThemeColor } from 'vscode';
+import { window, Uri, EventEmitter, FileDecoration, ThemeColor } from 'vscode';
 import { inject, injectable } from './inversify/injectable.ts';
+import type { SourceControlChangeState } from './code-source-control.ts';
 
 
 @injectable()
-export class DbCodeDecorations {
-
-	private disposables: Disposable[] = [];
+export class DbCodeDecorationProvider implements FileDecorationProvider {
 
 	constructor(
 		@inject('context') protected context: ExtensionContext,
-	) {}
+		@inject('source-change-state') protected sourceChangeState: SourceControlChangeState,
+	) { }
+
+	protected readonly _onDidChangeDecorations = new EventEmitter<Uri[]>();
+	public get onDidChangeFileDecorations(): Event<Uri[]> {
+		return this._onDidChangeDecorations.event;
+	}
+
+	protected deletedDecoration: FileDecoration = {
+		badge:   'D',
+		color:   new ThemeColor('gitDecoration.deletedResourceForeground'),
+		tooltip: 'Deleted',
+	};
+
+	protected newDecoration: FileDecoration = {
+		badge:   'N',
+		color:   new ThemeColor('gitDecoration.addedResourceForeground'),
+		tooltip: 'New',
+	};
+
+	protected modifiedDecoration: FileDecoration = {
+		badge:   'M',
+		color:   new ThemeColor('gitDecoration.modifiedResourceForeground'),
+		tooltip: 'Modified',
+	};
 
 	public initialize() {
-		this.context.subscriptions.push(this);
-		this.disposables.push(
-			new DbCodeDecorationProvider(),
-		);
+		this.context.subscriptions.push(window.registerFileDecorationProvider(this));
 	}
 
-	public dispose(): void {
-		this.disposables.forEach(d => d.dispose());
-		this.disposables.length = 0;
-	}
-
-}
-
-
-class DbCodeDecorationProvider implements FileDecorationProvider {
-
-	private readonly _onDidChangeDecorations = new EventEmitter<Uri[]>();
-	public readonly onDidChangeFileDecorations: Event<Uri[]> = this._onDidChangeDecorations.event;
-
-	private disposables: Disposable[] = [];
-
-	constructor() {
-		this.disposables.push(
-			window.registerFileDecorationProvider(this),
-		);
+	public requestNewFileDecorations(uris: Uri[]) {
+		this._onDidChangeDecorations.fire(uris);
 	}
 
 	public provideFileDecoration(uri: Uri): FileDecoration | undefined {
-		console.log('ASKING FOR FILE DECORATION', uri);
+		let decoration: FileDecoration | undefined;
+		const state = this.sourceChangeState.get(uri.fsPath);
 
-		return {
-			badge:   'M',
-			color:   new ThemeColor('gitDecoration.modifiedResourceForeground'),
-			tooltip: 'Modified',
-		};
-	}
+		if (state?.isDeleted)
+			decoration = this.deletedDecoration;
+		else if (state?.isNew)
+			decoration = this.newDecoration;
+		else if (state?.isModified)
+			decoration = this.modifiedDecoration;
 
-	public dispose(): void {
-		this.disposables.forEach(d => d.dispose());
-		this.disposables.length = 0;
+		return decoration;
 	}
 
 }

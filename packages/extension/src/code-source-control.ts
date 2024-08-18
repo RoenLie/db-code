@@ -2,61 +2,59 @@ import * as vscode from 'vscode';
 import { DbCodeRepository } from './code-repository.ts';
 import { existsSync, readFileSync } from 'fs';
 import { inject, injectable } from './inversify/injectable.ts';
-import type RemoteContentProvider from './remote-content-provider.ts';
-
-
-class ChangeState {
-
-	public isNew = false;
-	public isDeleted = false;
-	public isModified = false;
-	public get state() {
-		return this.isNew ? 'new'
-			: this.isDeleted ? 'deleted'
-				: 'modified';
-	}
-
-}
+import type { DbCodeDecorationProvider } from './decoration-provider.ts';
 
 
 @injectable()
 export class DbCodeSourceControl implements vscode.Disposable {
 
-	private scm:               vscode.SourceControl;
-	private changedResources:  vscode.SourceControlResourceGroup;
-	private repository:        DbCodeRepository;
-	private _onRepositoryChange = new vscode.EventEmitter<any>();
-	private timeout?:          NodeJS.Timeout;
-	protected workspaceFolder: vscode.WorkspaceFolder;
-
 	constructor(
 		@inject('context') protected context: vscode.ExtensionContext,
+		@inject('code-decoration-provider') protected decorations: DbCodeDecorationProvider,
+		@inject('source-change-state') protected sourceChangeState: SourceControlChangeState,
 	) { }
+
+	protected scm:              vscode.SourceControl;
+	protected changedResources: vscode.SourceControlResourceGroup;
+	protected repository:       DbCodeRepository;
+	protected timeout?:         NodeJS.Timeout;
+	protected workspaceFolder:  vscode.WorkspaceFolder;
+	protected _onRepositoryChange = new vscode.EventEmitter<any>();
+	public get onRepositoryChange(): vscode.Event<any> {
+		return this._onRepositoryChange.event;
+	}
 
 	public initialize(workspaceFolder: vscode.WorkspaceFolder) {
 		this.workspaceFolder = workspaceFolder;
-		this.scm = vscode.scm.createSourceControl('db-code', 'Db Code', workspaceFolder.uri);
+		this.scm = vscode.scm.createSourceControl('dbcode', 'Db Code', workspaceFolder.uri);
 		this.changedResources = this.scm.createResourceGroup('workingTree', 'Changes');
 		this.repository = new DbCodeRepository(workspaceFolder);
 		this.scm.quickDiffProvider = this.repository;
 		this.scm.inputBox.placeholder = 'Message';
 
 		const context = this.context;
-		const fileSystemWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(workspaceFolder, '*.*'));
+		const fileSystemWatcher = vscode.workspace
+			.createFileSystemWatcher(new vscode.RelativePattern(workspaceFolder, '*.*'));
+
 		fileSystemWatcher.onDidChange(uri => this.onResourceChange(uri), context.subscriptions);
 		fileSystemWatcher.onDidCreate(uri => this.onResourceChange(uri), context.subscriptions);
 		fileSystemWatcher.onDidDelete(uri => this.onResourceChange(uri), context.subscriptions);
 
-		context.subscriptions.push(this.scm);
 		context.subscriptions.push(fileSystemWatcher);
+		context.subscriptions.push(this);
 
-		this.tryUpdateChangedGroup();
+		this.refresh();
 	}
 
-	private refreshStatusBar() {
+	public refresh() {
+		this.tryUpdateChangedGroup();
+		this.refreshStatusBar();
+	}
+
+	protected refreshStatusBar() {
 		this.scm.statusBarCommands = [
 			{
-				command:   'extension.source-control.checkout',
+				command:   'dbCode.selectDomain',
 				arguments: [ this ],
 				title:     `↕ Here is a title`,
 				tooltip:   'Checkout another version of this fiddle.',
@@ -91,9 +89,6 @@ export class DbCodeSourceControl implements vscode.Disposable {
 		//}
 	}
 
-	public get onRepositoryChange(): vscode.Event<any> {
-		return this._onRepositoryChange.event;
-	}
 
 	public onResourceChange(_uri: vscode.Uri): void {
 		if (this.timeout)
@@ -115,7 +110,10 @@ export class DbCodeSourceControl implements vscode.Disposable {
 	/** This is where the source control determines, which documents were updated, removed, or added. */
 	public async updateChangedGroup(): Promise<void> {
 		// for simplicity we ignore which document was changed in this event and scan all of them
+		const newChangeState = new SourceControlChangeState();
 		const changedResources: vscode.SourceControlResourceState[] = [];
+		const changedStates: ChangeState[] = [];
+
 		const { local, remote } = this.repository.provideSourceControlledResources();
 
 		// Iterate through all local files to check if they have been modified
@@ -123,7 +121,7 @@ export class DbCodeSourceControl implements vscode.Disposable {
 		for (const localUri of local) {
 			const remoteUri = this.repository.provideOriginalResource(localUri);
 
-			const state = new ChangeState();
+			const state = new ChangeState(localUri);
 			const remotePathExists = existsSync(remoteUri.fsPath);
 
 			if (remotePathExists) {
@@ -142,28 +140,33 @@ export class DbCodeSourceControl implements vscode.Disposable {
 			}
 
 			if (state.isModified) {
-				const resourceState = this
-					.toSourceControlResourceState(remoteUri, localUri, state);
-
+				const resourceState = this.toSourceControlResourceState(remoteUri, localUri, state);
 				changedResources.push(resourceState);
+				newChangeState.set(localUri.fsPath, state);
 			}
+
+			// Check if it has changed.
+			const previousState = this.sourceChangeState.get(localUri.fsPath);
+			if (!previousState?.compare(state))
+				changedStates.push(state);
 		}
 
 		// Iterate the remote Uris for files which have been deleted from local.
 		// This list has been reduced in length by trimming entries already checked above.
 		for (const remoteUri of remote) {
 			const localUri = this.repository.provideLocalResource(remoteUri);
-			const localPathExists = existsSync(localUri.fsPath);
 
-			if (!localPathExists) {
-				const state = new ChangeState();
-				state.isDeleted = true;
+			const state = new ChangeState(localUri);
+			state.isDeleted = true;
 
-				const resourceState = this
-					.toSourceControlResourceState(remoteUri, localUri, state);
+			const resourceState = this.toSourceControlResourceState(remoteUri, localUri, state);
+			changedResources.push(resourceState);
+			newChangeState.set(localUri.fsPath, state);
 
-				changedResources.push(resourceState);
-			}
+			// Check if it has changed.
+			const previousState = this.sourceChangeState.get(localUri.fsPath);
+			if (!previousState?.compare(state))
+				changedStates.push(state);
 		}
 
 		this.changedResources.resourceStates = changedResources;
@@ -171,6 +174,14 @@ export class DbCodeSourceControl implements vscode.Disposable {
 		// the number of modified resources needs to be assigned to the SourceControl.count
 		// filed to let VS Code show the number.
 		this.scm.count = this.changedResources.resourceStates.length;
+
+		// Assign the new change state so that any future code uses the correct state.
+		this.sourceChangeState.clear();
+		newChangeState.forEach((state, key) => this.sourceChangeState.set(key, state));
+
+		// Request file decoration provider to get new file decorations for the changed files.
+		if (changedStates.length)
+			this.decorations.requestNewFileDecorations(changedStates.map(state => state.uri));
 	}
 
 	public toSourceControlResourceState(
@@ -198,30 +209,41 @@ export class DbCodeSourceControl implements vscode.Disposable {
 		return resourceState;
 	}
 
-	/**
-	 * Refresh is used when the information on the server may have changed.
-	 * For example another user updates the Fiddle online.
-	 */
-	//async refresh(): Promise<void> {
-	//	let latestVersion = this.fiddle.version || 0;
-	//	while (true) {
-	//		try {
-	//			const latestFiddle = await downloadFiddle(this.fiddle.slug, latestVersion);
-	//			this.latestFiddleVersion = latestVersion;
-	//			latestVersion++;
-	//		}
-	//		catch (ex) {
-	//			// typically the ex.statusCode == 404, when there is no further version
-	//			break;
-	//		}
-	//	}
-
-	//	this.refreshStatusBar();
-	//}
-
 	public dispose() {
 		this._onRepositoryChange.dispose();
 		this.scm.dispose();
+	}
+
+}
+
+
+@injectable()
+export class SourceControlChangeState extends Map<string, ChangeState> {}
+
+
+export class ChangeState {
+
+	constructor(
+		public uri: vscode.Uri,
+	) {}
+
+	public isNew = false;
+	public isDeleted = false;
+	public isModified = false;
+	public get state(): 'new' | 'deleted' | 'modified' | '' {
+		if (this.isNew)
+			return 'new';
+		if (this.isDeleted)
+			return 'deleted';
+		if (this.isModified)
+			return 'modified';
+
+		return '';
+	}
+
+	public compare(state: ChangeState) {
+		return this.uri.fsPath === state.uri.fsPath
+			&& this.state === state.state;
 	}
 
 }

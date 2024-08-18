@@ -26,9 +26,10 @@ export class DbCodeSourceControl implements vscode.Disposable {
 
 	public initialize(workspaceFolder: vscode.WorkspaceFolder) {
 		this.workspaceFolder = workspaceFolder;
-		this.scm = vscode.scm.createSourceControl('dbcode', 'Db Code', workspaceFolder.uri);
+		this.scm = vscode.scm.createSourceControl('dbCode', 'DBCode', workspaceFolder.uri);
 		this.changedResources = this.scm.createResourceGroup('workingTree', 'Changes');
-		this.repository = new DbCodeRepository(workspaceFolder);
+		this.repository = new DbCodeRepository();
+		this.repository.initialize(workspaceFolder);
 		this.scm.quickDiffProvider = this.repository;
 		this.scm.inputBox.placeholder = 'Message';
 
@@ -176,8 +177,7 @@ export class DbCodeSourceControl implements vscode.Disposable {
 		this.scm.count = this.changedResources.resourceStates.length;
 
 		// Assign the new change state so that any future code uses the correct state.
-		this.sourceChangeState.clear();
-		newChangeState.forEach((state, key) => this.sourceChangeState.set(key, state));
+		this.sourceChangeState.replace(newChangeState);
 
 		// Request file decoration provider to get new file decorations for the changed files.
 		if (changedStates.length)
@@ -218,7 +218,14 @@ export class DbCodeSourceControl implements vscode.Disposable {
 
 
 @injectable()
-export class SourceControlChangeState extends Map<string, ChangeState> {}
+export class SourceControlChangeState extends Map<string, ChangeState> {
+
+	public replace(changestate: SourceControlChangeState) {
+		this.clear();
+		changestate.forEach((state, key) => this.set(key, state));
+	}
+
+}
 
 
 export class ChangeState {

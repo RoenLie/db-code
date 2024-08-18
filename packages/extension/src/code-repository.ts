@@ -11,12 +11,17 @@ export class DbCodeRepository implements QuickDiffProvider {
 		scheme: RemoteContentProvider.scheme,
 	});
 
-	constructor(private workspaceFolder: WorkspaceFolder) { }
+	constructor() { }
 
+	protected workspaceFolder: WorkspaceFolder;
 	protected scmIgnore: string[] = [
-		//
+		'.dbcode',
 		'tsconfig.json',
 	];
+
+	public initialize(workspaceFolder: WorkspaceFolder) {
+		this.workspaceFolder = workspaceFolder;
+	}
 
 	public provideOriginalResource(uri: Uri): Uri {
 		const path = uri.path;
@@ -25,7 +30,7 @@ export class DbCodeRepository implements QuickDiffProvider {
 		if (path.includes('local')) {
 			originalUri = Uri.from({
 				scheme: RemoteContentProvider.scheme,
-				path:   path.replace('Code/local', 'Corelde/remote'),
+				path:   path.replace('Code/local', 'Code/remote'),
 			});
 		}
 
@@ -48,6 +53,7 @@ export class DbCodeRepository implements QuickDiffProvider {
 	public provideSourceControlledResources(): { remote: Uri[], local: Uri[] } {
 		const localPattern = join(this.workspaceFolder.uri.fsPath, '**').replaceAll('\\', '/');
 		const localFiles = globbySync(localPattern, { onlyFiles: true });
+
 		const remotePattern = localPattern.replace('Code/local', 'Code/remote');
 		const remoteFiles = globbySync(remotePattern, { onlyFiles: true });
 

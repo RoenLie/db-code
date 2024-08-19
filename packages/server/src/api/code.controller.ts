@@ -220,7 +220,7 @@ class AddModuleInSubdomain extends Endpoint {
 			content: this.request.body.data,
 		};
 
-		console.log(data);
+		console.log('new:', data);
 
 		//db.prepare<[string], { data: string }>(`
 		//INSERT INTO modules (data) VALUES(json(?));
@@ -244,7 +244,22 @@ class UpdateModuleInSubdomain extends Endpoint {
 	}
 
 	protected override handle(): void | Promise<void> {
-		throw new Error('Method not implemented.');
+		using db = new SQLite();
+
+		const { domain, subdomain, path } = this.request.query as {
+			domain:    string;
+			subdomain: string;
+			path:      string;
+		};
+
+		const data = {
+			domain,
+			subdomain,
+			path,
+			content: this.request.body.data,
+		};
+
+		console.log('update:', data);
 	}
 
 }
@@ -257,7 +272,21 @@ class DeleteModuleInSubdomain extends Endpoint {
 	}
 
 	protected override handle(): void | Promise<void> {
-		throw new Error('Method not implemented.');
+		using db = new SQLite();
+
+		const { domain, subdomain, path } = this.request.query as {
+			domain:    string;
+			subdomain: string;
+			path:      string;
+		};
+
+		const data = {
+			domain,
+			subdomain,
+			path,
+		};
+
+		console.log('delete:', data);
 	}
 
 }

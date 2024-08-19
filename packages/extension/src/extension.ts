@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import { createManifest } from './inversify/container.ts';
-import { ChangeState, DbCodeSourceControl, SourceControlChangeState } from './code-source-control.ts';
+import { DbCodeSourceControl, SourceControlChangeState } from './code-source-control.ts';
 import { appName } from './paths.ts';
 import type RemoteContentProvider from './remote-content-provider.ts';
 import { CodeExplorerView } from './code-explorer.ts';
@@ -19,19 +19,18 @@ export async function activate(context: vscode.ExtensionContext) {
 		async (_sourceControlPane: vscode.SourceControl) => {
 			const changeState = container.get<SourceControlChangeState>('source-change-state');
 
-			const newModules: Promise<any>[] = [];
-			const updateModules: ChangeState[] = [];
-			const deleteModules: ChangeState[] = [];
+			const promises: Promise<any>[] = [];
 
 			changeState.forEach(value => {
-				if (value.isNew) {
-					const url = new URL('/api/code/module/new', 'http://localhost:42069');
-					url.searchParams.set('domain', value.domain);
-					url.searchParams.set('subdomain', value.subdomain);
-					url.searchParams.set('path', value.path);
+				const url = new URL('', 'http://localhost:42069');
+				url.searchParams.set('domain', value.domain);
+				url.searchParams.set('subdomain', value.subdomain);
+				url.searchParams.set('path', value.path);
 
-					newModules.push(fetch(url, {
-						method:  'post',
+				if (value.isNew) {
+					url.pathname = '/api/code/module/new';
+					promises.push(fetch(url, {
+						method:  'POST',
 						headers: {
 							'Content-Type': 'application/json',
 						},
@@ -39,14 +38,24 @@ export async function activate(context: vscode.ExtensionContext) {
 					}));
 				}
 				else if (value.isDeleted) {
-					deleteModules.push(value);
+					url.pathname = '/api/code/module/delete';
+					promises.push(fetch(url, {
+						method: 'DELETE',
+					}));
 				}
 				else if (value.isModified) {
-					updateModules.push(value);
+					url.pathname = '/api/code/module/update';
+					promises.push(fetch(url, {
+						method:  'PATCH',
+						headers: {
+							'Content-Type': 'application/json',
+						},
+						body: JSON.stringify({ data: readFileSync(value.uri.fsPath, 'utf-8') }),
+					}));
 				}
 			});
 
-			//
+			await Promise.allSettled(promises);
 		},
 	));
 

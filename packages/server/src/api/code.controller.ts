@@ -198,6 +198,71 @@ class GetCodeModule extends Endpoint {
 }
 
 
+class AddModuleInSubdomain extends Endpoint {
+
+	protected override configure(): void {
+		this.post('/api/code/module/new');
+	}
+
+	protected override handle(): void | Promise<void> {
+		using db = new SQLite();
+
+		const { domain, subdomain, path } = this.request.query as {
+			domain:    string;
+			subdomain: string;
+			path:      string;
+		};
+
+		const data = {
+			domain,
+			subdomain,
+			path,
+			content: this.request.body.data,
+		};
+
+		console.log(data);
+
+		//db.prepare<[string], { data: string }>(`
+		//INSERT INTO modules (data) VALUES(json(?));
+		//`).run(JSON.stringify({
+		//	domain,
+		//	subdomain,
+		//	path,
+		//	content: this.request.body,
+		//}));
+
+		this.response.sendStatus(200);
+	}
+
+}
+
+
+class UpdateModuleInSubdomain extends Endpoint {
+
+	protected override configure(): void {
+		this.patch('/api/code/module/update');
+	}
+
+	protected override handle(): void | Promise<void> {
+		throw new Error('Method not implemented.');
+	}
+
+}
+
+
+class DeleteModuleInSubdomain extends Endpoint {
+
+	protected override configure(): void {
+		this.delete('/api/code/module/delete');
+	}
+
+	protected override handle(): void | Promise<void> {
+		throw new Error('Method not implemented.');
+	}
+
+}
+
+
 class CreateDemoData extends Endpoint {
 
 	protected override configure(): void {
@@ -261,5 +326,8 @@ export default [
 	GetAllDomainsAndSubdomains,
 	GetModulesInSubdomain,
 	GetCodeModule,
+	AddModuleInSubdomain,
+	UpdateModuleInSubdomain,
+	DeleteModuleInSubdomain,
 	CreateDemoData,
 ] as ExpressController;

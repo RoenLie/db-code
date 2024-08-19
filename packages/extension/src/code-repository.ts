@@ -1,4 +1,4 @@
-import type { QuickDiffProvider, WorkspaceFolder } from 'vscode';
+import type { CancellationToken, QuickDiffProvider, WorkspaceFolder } from 'vscode';
 import { Uri } from 'vscode';
 import { globbySync } from 'globby';
 import { join } from 'node:path/posix';
@@ -23,7 +23,7 @@ export class DbCodeRepository implements QuickDiffProvider {
 		this.workspaceFolder = workspaceFolder;
 	}
 
-	public provideOriginalResource(uri: Uri): Uri {
+	public provideOriginalResource(uri: Uri, _token?: CancellationToken): Uri {
 		const path = uri.path;
 		let originalUri = uri;
 

@@ -14,6 +14,9 @@ export type EndpointRequest<TRequestModel = any, TResponseModel = any> =
 export type EndpointResponse<TResponseModel = any> = Response<TResponseModel, Record<string, any>>;
 
 
+export type RequestMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
+
+
 export abstract class Endpoint<TRequestModel = any, TResponseModel = any> {
 
 	constructor() {
@@ -41,7 +44,7 @@ export abstract class Endpoint<TRequestModel = any, TResponseModel = any> {
 	}
 
 	#path?:    string;
-	#method?:  'get' | 'post' | 'put' | 'delete' | 'patch';
+	#method?:  RequestMethod;
 	#handlers: RequestHandler[] = [];
 
 	protected request:  EndpointRequest<TRequestModel, TResponseModel>;
@@ -50,14 +53,15 @@ export abstract class Endpoint<TRequestModel = any, TResponseModel = any> {
 	protected abstract configure(): void;
 	protected abstract handle(): void | Promise<void>;
 
-	protected post(path: string) {
-		this.#path = path;
-		this.#method = 'post';
-	}
+	protected get(path: string)    { this.setPathAndMethod(path, 'get');	   }
+	protected post(path: string)   { this.setPathAndMethod(path, 'post');	}
+	protected put(path: string)    { this.setPathAndMethod(path, 'put');	   }
+	protected patch(path: string)  { this.setPathAndMethod(path, 'patch');	}
+	protected delete(path: string) { this.setPathAndMethod(path, 'delete');	}
 
-	protected get(path: string) {
+	protected setPathAndMethod(path: string, method: RequestMethod) {
 		this.#path = path;
-		this.#method = 'get';
+		this.#method = method;
 	}
 
 	protected middleware(handler: EndpointHandler) {

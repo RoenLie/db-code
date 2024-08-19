@@ -232,8 +232,18 @@ export class ChangeState {
 
 	constructor(
 		public uri: vscode.Uri,
-	) {}
+	) {
+		const fullPath = uri.path.split('Code/local/').at(-1) ?? '';
+		const parts = fullPath.split('/');
 
+		this.domain = parts.splice(0, 1).at(0)!;
+		this.subdomain = parts.splice(0, 1).at(0)!;
+		this.path = parts.join('/');
+	}
+
+	public readonly domain:    string;
+	public readonly subdomain: string;
+	public readonly path:      string;
 	public isNew = false;
 	public isDeleted = false;
 	public isModified = false;

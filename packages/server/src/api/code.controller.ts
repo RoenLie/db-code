@@ -198,7 +198,7 @@ class GetCodeModule extends Endpoint {
 }
 
 
-class AddModuleInSubdomain extends Endpoint {
+class insertModuleInSubdomain extends Endpoint {
 
 	protected override configure(): void {
 		this.post('/api/code/module/new');
@@ -260,6 +260,8 @@ class UpdateModuleInSubdomain extends Endpoint {
 		};
 
 		console.log('update:', data);
+
+		this.response.sendStatus(200);
 	}
 
 }
@@ -287,6 +289,8 @@ class DeleteModuleInSubdomain extends Endpoint {
 		};
 
 		console.log('delete:', data);
+
+		this.response.sendStatus(200);
 	}
 
 }
@@ -355,7 +359,7 @@ export default [
 	GetAllDomainsAndSubdomains,
 	GetModulesInSubdomain,
 	GetCodeModule,
-	AddModuleInSubdomain,
+	insertModuleInSubdomain,
 	UpdateModuleInSubdomain,
 	DeleteModuleInSubdomain,
 	CreateDemoData,

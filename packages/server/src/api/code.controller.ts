@@ -222,12 +222,7 @@ class insertModuleInSubdomain extends Endpoint {
 
 		db.prepare<[string], { data: string }>(/* sql */`
 		INSERT INTO modules (data) VALUES(json(?));
-		`).run(JSON.stringify({
-			domain,
-			subdomain,
-			path,
-			content: this.request.body,
-		}));
+		`).run(JSON.stringify(data));
 
 		this.response.sendStatus(200);
 	}

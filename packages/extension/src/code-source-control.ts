@@ -55,10 +55,9 @@ export class DbCodeSourceControl implements vscode.Disposable {
 	protected refreshStatusBar() {
 		this.scm.statusBarCommands = [
 			{
-				command:   'dbCode.selectDomain',
-				arguments: [ this ],
-				title:     `↕ Here is a title`,
-				tooltip:   'Checkout another version of this fiddle.',
+				command: 'dbCode.selectDomain',
+				title:   `↕ Here is a title`,
+				tooltip: 'Checkout another version of this fiddle.',
 			},
 		];
 	}

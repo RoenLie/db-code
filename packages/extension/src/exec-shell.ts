@@ -1,7 +1,4 @@
-import { exec as _exec } from 'child_process';
-import { promisify } from 'node:util';
-
-const exec = promisify(_exec);
+import { exec, type ExecException } from 'child_process';
 
 
 export type Maybe<T, E> = readonly [data: T, error: undefined]
@@ -35,10 +32,21 @@ export const $ = async (
 		aggregator += value;
 	}
 
-	const { stdout, stderr } = await exec(aggregator,
-		{ cwd: import.meta.dirname });
+	const promise = new Promise<{ stdout: string, stderr: string }>((resolve, _reject) => {
+		let timeout: NodeJS.Timeout;
 
-	//console.log({ stdout, stderr });
+		const debounce = (_error: ExecException | null, stdout: string, stderr: string) => {
+			clearTimeout(timeout);
+
+			timeout = setTimeout(() => {
+				resolve({ stdout, stderr });
+			}, 100);
+		};
+
+		exec(aggregator, debounce);
+	});
+
+	const { stdout, stderr } = await promise;
 	if (stdout)
 		return [ stdout, undefined ];
 	else

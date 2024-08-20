@@ -3,6 +3,7 @@ import { Uri } from 'vscode';
 import { globbySync } from 'globby';
 import { join } from 'node:path/posix';
 import RemoteContentProvider from './remote-content-provider.ts';
+import { isMatch } from 'micromatch';
 
 
 export class DbCodeRepository implements QuickDiffProvider {
@@ -11,13 +12,14 @@ export class DbCodeRepository implements QuickDiffProvider {
 		scheme: RemoteContentProvider.scheme,
 	});
 
+	public static ignore: string[] = [
+		'**/.dbcode',
+		'**/tsconfig.json',
+	];
+
 	constructor() { }
 
 	protected workspaceFolder: WorkspaceFolder;
-	protected scmIgnore: string[] = [
-		'.dbcode',
-		'tsconfig.json',
-	];
 
 	public initialize(workspaceFolder: WorkspaceFolder) {
 		this.workspaceFolder = workspaceFolder;
@@ -58,11 +60,11 @@ export class DbCodeRepository implements QuickDiffProvider {
 		const remoteFiles = globbySync(remotePattern, { onlyFiles: true });
 
 		const filteredLocal = localFiles
-			.filter(file => !this.scmIgnore.some(pattern => file.includes(pattern)))
+			.filter(file => !DbCodeRepository.ignore.some(pat => isMatch(file, pat)))
 			.map(file => Uri.file(file));
 
 		const filteredRemote = remoteFiles
-			.filter(file => !this.scmIgnore.some(pattern => file.includes(pattern)))
+			.filter(file => !DbCodeRepository.ignore.some(pat => isMatch(file, pat)))
 			.map(file => Uri.from({
 				scheme: RemoteContentProvider.scheme,
 				path:   file,

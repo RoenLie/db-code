@@ -4,10 +4,13 @@ import type { ExtensionContext } from 'vscode';
 import { inject, injectable } from './inversify/injectable.ts';
 import { basename, dirname, join } from 'node:path/posix';
 import { paths } from './paths.ts';
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, unlink, writeFile } from 'fs/promises';
 import { $ } from './exec-shell.ts';
 import { existsSync } from 'node:fs';
+import { globby } from 'globby';
 import type { Container } from 'inversify';
+import { DbCodeRepository } from './code-repository.ts';
+import { isMatch } from 'micromatch';
 
 
 interface Module {
@@ -26,8 +29,6 @@ export class CodeExplorerView {
 		@inject('container') protected container: Container,
 	) { }
 
-	protected activeDomain = '';
-	protected activeSubdomain = '';
 	protected domainMap = new Map<string, string[]>();
 
 	public initialize() {
@@ -58,7 +59,20 @@ export class CodeExplorerView {
 		remoteDir: string,
 		localDir: string,
 		modules: Module[],
+		replaceLocal?: boolean,
 	) {
+		const existingRemoteGlob = await globby(remoteDir + '/**', { onlyFiles: true });
+		let existingRemotePaths: string[] = [];
+
+		for (const path of existingRemoteGlob)
+			existingRemotePaths.push(path);
+
+		const existingLocalGlob = await globby(localDir + '/**', { onlyFiles: true });
+		let existingLocalPaths: string[] = [];
+
+		for (const path of existingLocalGlob)
+			existingLocalPaths.push(path);
+
 		await Promise.allSettled(modules.map(async m => {
 			const remoteFileDir = join(remoteDir, dirname(m.path));
 			const localFileDir = join(localDir, dirname(m.path));
@@ -71,9 +85,29 @@ export class CodeExplorerView {
 
 			await mkdir(localFileDir, { recursive: true });
 
-			if (!existsSync(localFilePath))
+			if (!existsSync(localFilePath) || replaceLocal)
 				await writeFile(localFilePath, m.content, 'utf-8');
+
+			const remoteExists = existingRemotePaths.indexOf(remoteFilePath);
+			const localExists = existingLocalPaths.indexOf(localFilePath);
+			existingLocalPaths.splice(localExists, 1);
+			existingRemotePaths.splice(remoteExists, 1);
 		}));
+
+		existingRemotePaths = existingRemotePaths
+			.filter(p => !DbCodeRepository.ignore.some(pat => isMatch(p, pat)));
+		existingLocalPaths = existingLocalPaths
+			.filter(p => !DbCodeRepository.ignore.some(pat => isMatch(p, pat)));
+
+		await Promise.allSettled(existingRemotePaths.map(async path => {
+			await unlink(path);
+		}));
+
+		if (replaceLocal) {
+			await Promise.allSettled(existingLocalPaths.map(async path => {
+				await unlink(path);
+			}));
+		}
 	}
 
 	protected async showSelectDomainPicker() {
@@ -101,7 +135,9 @@ export class CodeExplorerView {
 		const remoteDir = join(paths.code, 'remote', domain, subdomain);
 		const localDir = join(paths.code, 'local', domain, subdomain);
 
-		await this.updateRemoteAndEnsureLocal(remoteDir, localDir, modules);
+		await this.updateRemoteAndEnsureLocal(
+			remoteDir, localDir, modules, true,
+		);
 
 		const rootPath = workspace.workspaceFolders?.[0]?.uri.fsPath
 			?.replaceAll('\\', '/').toLowerCase();
@@ -230,6 +266,23 @@ export class CodeExplorerView {
 		}, undefined, '\t'), 'utf-8');
 
 		await writeFile(join(localDir, '.dbcode'), ``, 'utf-8');
+	}
+
+	public async pullFromRemote() {
+		const workspaceFolder = workspace.workspaceFolders![0]!;
+		const domainSegment = workspaceFolder.uri.path.split('Code/local/').at(-1)!;
+		const [ domain, subdomain ] = domainSegment.split('/') as [string, string];
+
+		window.showInformationMessage(`Pulling from remote: ${ domain }:${ subdomain }`);
+
+		const modules = await this.getModules(domain, subdomain);
+
+		const remoteDir = join(paths.code, 'remote', domain, subdomain);
+		const localDir = join(paths.code, 'local', domain, subdomain);
+
+		await this.updateRemoteAndEnsureLocal(
+			remoteDir, localDir, modules, true,
+		);
 	}
 
 }

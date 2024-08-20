@@ -90,7 +90,6 @@ export class DbCodeSourceControl implements vscode.Disposable {
 		//}
 	}
 
-
 	public onResourceChange(_uri: vscode.Uri): void {
 		if (this.timeout)
 			clearTimeout(this.timeout);
@@ -219,6 +218,9 @@ export class DbCodeSourceControl implements vscode.Disposable {
 
 @injectable()
 export class SourceControlChangeState extends Map<string, ChangeState> {
+
+	public domain = '';
+	public subdomain = '';
 
 	public replace(changestate: SourceControlChangeState) {
 		this.clear();

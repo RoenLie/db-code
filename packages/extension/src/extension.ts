@@ -56,6 +56,12 @@ export async function activate(context: vscode.ExtensionContext) {
 			});
 
 			await Promise.allSettled(promises);
+
+			const ce = container.get<CodeExplorerView>('code-explorer');
+			await ce.pullFromRemote();
+
+			const scm = container.get<DbCodeSourceControl>('code-source-control');
+			await scm.tryUpdateChangedGroup();
 		},
 	));
 

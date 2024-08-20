@@ -12,11 +12,9 @@ class GetAllPaths extends Endpoint {
 	protected override handle(): void | Promise<void> {
 		using db = new SQLite();
 
-		const files = db.prepare<unknown[], { data: string; }>(`
-		SELECT
-			data
-		FROM
-			modules;
+		const files = db.prepare<unknown[], { data: string; }>(/* sql */`
+		SELECT data
+		FROM modules;
 		`).all().map(r => JSON.parse(r.data));
 
 		this.response.send(files);
@@ -34,7 +32,7 @@ class GetAllDomains extends Endpoint {
 	protected override handle(): void | Promise<void> {
 		using db = new SQLite();
 
-		const files = db.prepare<unknown[], { domain: string; }>(`
+		const files = db.prepare<unknown[], { domain: string; }>(/* sql */`
 		SELECT DISTINCT
 			data ->> '$.domain' as domain
 		FROM
@@ -60,7 +58,7 @@ class GetSubdomains extends Endpoint {
 
 		using db = new SQLite();
 
-		const files = db.prepare<unknown[], { subdomain: string; }>(`
+		const files = db.prepare<unknown[], { subdomain: string; }>(/* sql */`
 		SELECT DISTINCT
 			data ->> '$.subdomain' as subdomain
 		FROM
@@ -86,7 +84,7 @@ class GetAllDomainsAndSubdomains extends Endpoint {
 		const transaction = db.transaction(() => {
 			const domainMap = new Map<string, string[]>();
 
-			const domains = db.prepare<unknown[], { domain: string; }>(`
+			const domains = db.prepare<unknown[], { domain: string; }>(/* sql */`
 			SELECT DISTINCT
 				data ->> '$.domain' as domain
 			FROM
@@ -94,7 +92,7 @@ class GetAllDomainsAndSubdomains extends Endpoint {
 			`).all().map(r => r.domain);
 
 			for (const domain of domains) {
-				const subdomains = db.prepare<unknown[], { subdomain: string; }>(`
+				const subdomains = db.prepare<unknown[], { subdomain: string; }>(/* sql */`
 				SELECT DISTINCT
 					data ->> '$.subdomain' as subdomain
 				FROM
@@ -132,7 +130,7 @@ class GetModulesInSubdomain extends Endpoint {
 		using db = new SQLite();
 
 		if (path) {
-			const module = db.prepare<[string, string, string], { data: string; }>(`
+			const module = db.prepare<[string, string, string], { data: string; }>(/* sql */`
 			SELECT
 				data
 			FROM
@@ -149,15 +147,15 @@ class GetModulesInSubdomain extends Endpoint {
 				this.response.send(JSON.parse(module?.data ?? '{}'));
 		}
 		else {
-			const modules = db.prepare<[string, string], { data: string; }>(`
-				SELECT
-					data
-				FROM
-					modules
-				WHERE 1 = 1
-					AND data ->> '$.domain' = (?)
-					AND data ->> '$.subdomain' = (?);
-				`).all(domain, subdomain).map(r => JSON.parse(r.data));
+			const modules = db.prepare<[string, string], { data: string; }>(/* sql */`
+			SELECT
+				data
+			FROM
+				modules
+			WHERE 1 = 1
+				AND data ->> '$.domain' = (?)
+				AND data ->> '$.subdomain' = (?);
+			`).all(domain, subdomain).map(r => JSON.parse(r.data));
 
 			this.response.send(modules);
 		}
@@ -181,7 +179,7 @@ class GetCodeModule extends Endpoint {
 			path:      string;
 		};
 
-		const module = db.prepare<[string, string, string], { data: string }>(`
+		const module = db.prepare<[string, string, string], { data: string }>(/* sql */`
 		SELECT
 			data
 		FROM
@@ -222,14 +220,14 @@ class insertModuleInSubdomain extends Endpoint {
 
 		console.log('new:', data);
 
-		//db.prepare<[string], { data: string }>(`
-		//INSERT INTO modules (data) VALUES(json(?));
-		//`).run(JSON.stringify({
-		//	domain,
-		//	subdomain,
-		//	path,
-		//	content: this.request.body,
-		//}));
+		db.prepare<[string], { data: string }>(/* sql */`
+		INSERT INTO modules (data) VALUES(json(?));
+		`).run(JSON.stringify({
+			domain,
+			subdomain,
+			path,
+			content: this.request.body,
+		}));
 
 		this.response.sendStatus(200);
 	}
@@ -258,6 +256,19 @@ class UpdateModuleInSubdomain extends Endpoint {
 			path,
 			content: this.request.body.data,
 		};
+
+		db.prepare(/* sql */`
+		UPDATE
+			modules
+		SET
+			data = json(?)
+		WHERE 1 = 1
+			AND data ->> '$.domain'    = (?)
+			AND data ->> '$.subdomain' = (?)
+			AND data ->> '$.path'      = (?)
+		LIMIT
+			1;
+		`).run(JSON.stringify(data), domain, subdomain, path);
 
 		console.log('update:', data);
 
@@ -288,6 +299,17 @@ class DeleteModuleInSubdomain extends Endpoint {
 			path,
 		};
 
+		db.prepare(/* sql */`
+		DELETE FROM
+			modules
+		WHERE 1 = 1
+			AND data ->> '$.domain'    = (?)
+			AND data ->> '$.subdomain' = (?)
+			AND data ->> '$.path'      = (?)
+		LIMIT
+			1;
+		`).run(domain, subdomain, path);
+
 		console.log('delete:', data);
 
 		this.response.sendStatus(200);
@@ -305,18 +327,18 @@ class CreateDemoData extends Endpoint {
 	protected override handle(): void | Promise<void> {
 		using db = new SQLite();
 
-		db.prepare(`
+		db.prepare(/* sql */`
 		CREATE TABLE IF NOT EXISTS modules (
 			id INTEGER PRIMARY KEY,
 			data JSON
 		);
 		`).run();
 
-		db.prepare(`
+		db.prepare(/* sql */`
 		DELETE FROM modules
 		`).run();
 
-		const insert = db.prepare(`
+		const insert = db.prepare(/* sql */`
 		INSERT INTO modules (data) VALUES(json(?));
 		`);
 

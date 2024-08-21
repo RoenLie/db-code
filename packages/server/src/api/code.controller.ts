@@ -338,25 +338,32 @@ class CreateDemoData extends Endpoint {
 		`);
 
 		insert.run(JSON.stringify({
+			tenant:    'core',
+			type:      'library',
 			domain:    'domain1',
 			subdomain: 'subdomain1',
 			path:      'test1.ts',
 			content:   "//domain1,subdomain1\nexport const hello = () => console.log('hello');",
 		}));
 		insert.run(JSON.stringify({
+			tenant:    'core',
+			type:      'library',
 			domain:    'domain1',
 			subdomain: 'subdomain2',
 			path:      'test2.ts',
 			content:   "//domain1,subdomain2\nexport const world = () => console.log('world');",
 		}));
-
 		insert.run(JSON.stringify({
+			tenant:    'core',
+			type:      'library',
 			domain:    'domain2',
 			subdomain: 'subdomain1',
 			path:      'test1.ts',
 			content:   "//domain2,subdomain1\nexport const hello = () => console.log('hello');",
 		}));
 		insert.run(JSON.stringify({
+			tenant:    'core',
+			type:      'library',
 			domain:    'domain2',
 			subdomain: 'subdomain2',
 			path:      'test2.ts',

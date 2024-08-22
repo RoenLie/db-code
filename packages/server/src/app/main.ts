@@ -16,7 +16,7 @@ dotenv.config({
 
 
 export const app: Express = express()
-	.use(cors())
+	.use(cors({ allowedHeaders: '*' }))
 	.use(express.json());
 
 

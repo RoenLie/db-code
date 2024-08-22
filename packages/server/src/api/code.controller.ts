@@ -215,7 +215,9 @@ class insertModuleInSubdomain extends Endpoint {
 			domain,
 			subdomain,
 			path,
-			content: this.request.body.data,
+			content:    this.request.body.data,
+			created_at: new Date().toString(),
+			updated_at: new Date().toString(),
 		};
 
 		console.log('new:', data);
@@ -249,8 +251,25 @@ class UpdateModuleInSubdomain extends Endpoint {
 			domain,
 			subdomain,
 			path,
-			content: this.request.body.data,
+			content:    this.request.body.data,
+			created_at: new Date().toString(),
+			updated_at: new Date().toString(),
 		};
+
+		db.prepare(/* sql */`
+		SELECT
+			data
+		FROM
+			modules
+		WHERE 1 = 1
+			AND data ->> '$.domain'    = (?)
+			AND data ->> '$.subdomain' = (?)
+			AND data ->> '$.path'      = (?)
+		LIMIT
+			1;
+
+		`)
+
 
 		db.prepare(/* sql */`
 		UPDATE
@@ -338,36 +357,44 @@ class CreateDemoData extends Endpoint {
 		`);
 
 		insert.run(JSON.stringify({
-			tenant:    'core',
-			type:      'library',
-			domain:    'domain1',
-			subdomain: 'subdomain1',
-			path:      'test1.ts',
-			content:   "//domain1,subdomain1\nexport const hello = () => console.log('hello');",
+			tenant:     'core',
+			type:       'library',
+			domain:     'domain1',
+			subdomain:  'subdomain1',
+			path:       'test1.ts',
+			content:    "//domain1,subdomain1\nexport const hello = () => console.log('hello');",
+			created_at: new Date().toString(),
+			updated_at: new Date().toString(),
 		}));
 		insert.run(JSON.stringify({
-			tenant:    'core',
-			type:      'library',
-			domain:    'domain1',
-			subdomain: 'subdomain2',
-			path:      'test2.ts',
-			content:   "//domain1,subdomain2\nexport const world = () => console.log('world');",
+			tenant:     'core',
+			type:       'library',
+			domain:     'domain1',
+			subdomain:  'subdomain2',
+			path:       'test2.ts',
+			content:    "//domain1,subdomain2\nexport const world = () => console.log('world');",
+			created_at: new Date().toString(),
+			updated_at: new Date().toString(),
 		}));
 		insert.run(JSON.stringify({
-			tenant:    'core',
-			type:      'library',
-			domain:    'domain2',
-			subdomain: 'subdomain1',
-			path:      'test1.ts',
-			content:   "//domain2,subdomain1\nexport const hello = () => console.log('hello');",
+			tenant:     'core',
+			type:       'library',
+			domain:     'domain2',
+			subdomain:  'subdomain1',
+			path:       'test1.ts',
+			content:    "//domain2,subdomain1\nexport const hello = () => console.log('hello');",
+			created_at: new Date().toString(),
+			updated_at: new Date().toString(),
 		}));
 		insert.run(JSON.stringify({
-			tenant:    'core',
-			type:      'library',
-			domain:    'domain2',
-			subdomain: 'subdomain2',
-			path:      'test2.ts',
-			content:   "//domain2,subdomain2\nexport const world = () => console.log('world');",
+			tenant:     'core',
+			type:       'library',
+			domain:     'domain2',
+			subdomain:  'subdomain2',
+			path:       'test2.ts',
+			content:    "//domain2,subdomain2\nexport const world = () => console.log('world');",
+			created_at: new Date().toString(),
+			updated_at: new Date().toString(),
 		}));
 
 		this.response.sendStatus(200);

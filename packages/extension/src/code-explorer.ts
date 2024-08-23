@@ -244,7 +244,7 @@ export class CodeExplorerView {
 				'paths':             [ ...this.domainMap ].reduce(
 					(acc, [ domain, subdomains ]) => {
 						subdomains.forEach(subdomain =>
-							acc[`${ domain }:${ subdomain }/*`] = [ join(domain, subdomain, '*') ]);
+							acc[`@/${ domain }/${ subdomain }/*`] = [ join(domain, subdomain, '*') ]);
 
 						return acc;
 					},

@@ -3,6 +3,18 @@ import { SQLite } from '../app/database.ts';
 import { Endpoint } from '../app/endpoint.ts';
 
 
+export interface CodeModule {
+	tenant:     string;
+	type:       string;
+	domain:     string;
+	subdomain:  string;
+	path:       string;
+	content:    string;
+	created_at: string;
+	updated_at: string;
+}
+
+
 class GetAllPaths extends Endpoint {
 
 	protected override configure(): void {
@@ -212,12 +224,14 @@ class insertModuleInSubdomain extends Endpoint {
 		};
 
 		const data = {
+			tenant:     'core',
+			type:       'library',
 			domain,
 			subdomain,
 			path,
 			content:    this.request.body.data,
-			created_at: new Date().toString(),
-			updated_at: new Date().toString(),
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
 		};
 
 		console.log('new:', data);
@@ -238,7 +252,7 @@ class UpdateModuleInSubdomain extends Endpoint {
 		this.patch('/api/code/module/update');
 	}
 
-	protected override handle(): void | Promise<void> {
+	protected override handle(): any | Promise<any> {
 		using db = new SQLite();
 
 		const { domain, subdomain, path } = this.request.query as {
@@ -247,16 +261,7 @@ class UpdateModuleInSubdomain extends Endpoint {
 			path:      string;
 		};
 
-		const data = {
-			domain,
-			subdomain,
-			path,
-			content:    this.request.body.data,
-			created_at: new Date().toString(),
-			updated_at: new Date().toString(),
-		};
-
-		db.prepare(/* sql */`
+		const existing = db.prepare<[string, string, string], { data: string }>(/* sql */`
 		SELECT
 			data
 		FROM
@@ -267,9 +272,15 @@ class UpdateModuleInSubdomain extends Endpoint {
 			AND data ->> '$.path'      = (?)
 		LIMIT
 			1;
+		`).get(domain, subdomain, path);
 
-		`)
+		if (!existing?.data)
+			return this.response.sendStatus(404);
 
+		const existingObj = JSON.parse(existing?.data) as CodeModule;
+
+		existingObj.content = this.request.body.data;
+		existingObj.updated_at = new Date().toISOString();
 
 		db.prepare(/* sql */`
 		UPDATE
@@ -282,9 +293,9 @@ class UpdateModuleInSubdomain extends Endpoint {
 			AND data ->> '$.path'      = (?)
 		LIMIT
 			1;
-		`).run(JSON.stringify(data), domain, subdomain, path);
+		`).run(JSON.stringify(existingObj), domain, subdomain, path);
 
-		console.log('update:', data);
+		console.log('update:', existingObj);
 
 		this.response.sendStatus(200);
 	}
@@ -352,7 +363,7 @@ class CreateDemoData extends Endpoint {
 		DELETE FROM modules
 		`).run();
 
-		const insert = db.prepare(/* sql */`
+		const insert = db.prepare<[string]>(/* sql */`
 		INSERT INTO modules (data) VALUES(json(?));
 		`);
 
@@ -363,8 +374,8 @@ class CreateDemoData extends Endpoint {
 			subdomain:  'subdomain1',
 			path:       'test1.ts',
 			content:    "//domain1,subdomain1\nexport const hello = () => console.log('hello');",
-			created_at: new Date().toString(),
-			updated_at: new Date().toString(),
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
 		}));
 		insert.run(JSON.stringify({
 			tenant:     'core',
@@ -373,8 +384,8 @@ class CreateDemoData extends Endpoint {
 			subdomain:  'subdomain2',
 			path:       'test2.ts',
 			content:    "//domain1,subdomain2\nexport const world = () => console.log('world');",
-			created_at: new Date().toString(),
-			updated_at: new Date().toString(),
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
 		}));
 		insert.run(JSON.stringify({
 			tenant:     'core',
@@ -383,8 +394,8 @@ class CreateDemoData extends Endpoint {
 			subdomain:  'subdomain1',
 			path:       'test1.ts',
 			content:    "//domain2,subdomain1\nexport const hello = () => console.log('hello');",
-			created_at: new Date().toString(),
-			updated_at: new Date().toString(),
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
 		}));
 		insert.run(JSON.stringify({
 			tenant:     'core',
@@ -393,8 +404,8 @@ class CreateDemoData extends Endpoint {
 			subdomain:  'subdomain2',
 			path:       'test2.ts',
 			content:    "//domain2,subdomain2\nexport const world = () => console.log('world');",
-			created_at: new Date().toString(),
-			updated_at: new Date().toString(),
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
 		}));
 
 		this.response.sendStatus(200);

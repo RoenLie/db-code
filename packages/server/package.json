@@ -21,7 +21,8 @@
 		"express": "^4.19.2",
 		"formidable": "^3.5.1",
 		"mime": "^4.0.3",
-		"tsx": "^4.16.5"
+		"tsx": "^4.16.5",
+		"typescript": "^5.5.4"
 	},
 	"devDependencies": {
 		"@types/better-sqlite3": "^7.6.11",

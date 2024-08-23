@@ -88,6 +88,7 @@ class GetSubdomains extends Endpoint {
 
 }
 
+
 class GetAllDomainsAndSubdomains extends Endpoint {
 
 	protected override configure(): void {
@@ -390,54 +391,86 @@ class CreateDemoData extends Endpoint {
 		);
 		`).run();
 
-		db.prepare(/* sql */`
-		DELETE FROM modules
-		`).run();
+		//db.prepare(/* sql */`
+		//DELETE FROM modules
+		//`).run();
 
 		const insert = db.prepare<[string]>(/* sql */`
 		INSERT INTO modules (data) VALUES(json(?));
 		`);
 
 		insert.run(JSON.stringify({
-			tenant:     'core',
-			type:       'library',
-			domain:     'domain1',
-			subdomain:  'subdomain1',
-			path:       'test1.ts',
-			content:    "//domain1,subdomain1\nexport const hello = () => console.log('hello');",
+			tenant:    'core',
+			type:      'site',
+			domain:    'domain1',
+			subdomain: 'subdomain1',
+			path:      'index.html',
+			content:   `<!DOCTYPE html>
+			<html lang="en">
+			<head>
+				<meta charset="UTF-8">
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				<title>Document</title>
+				<style>
+					body {
+						background-color: grey;
+					}
+				</style>
+				<script type="module">
+					import { hello, world } from '@/domain1/subdomain1/test1.ts'
+					hello();
+					world();
+				</script>
+			</head>
+			<body>
+			<div>
+				Hello there, this is pretty cool that it works...
+			</div>
+			</body>
+			</html>`,
 			created_at: new Date().toISOString(),
 			updated_at: new Date().toISOString(),
 		}));
-		insert.run(JSON.stringify({
-			tenant:     'core',
-			type:       'library',
-			domain:     'domain1',
-			subdomain:  'subdomain2',
-			path:       'test2.ts',
-			content:    "//domain1,subdomain2\nexport const world = () => console.log('world');",
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-		}));
-		insert.run(JSON.stringify({
-			tenant:     'core',
-			type:       'library',
-			domain:     'domain2',
-			subdomain:  'subdomain1',
-			path:       'test1.ts',
-			content:    "//domain2,subdomain1\nexport const hello = () => console.log('hello');",
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-		}));
-		insert.run(JSON.stringify({
-			tenant:     'core',
-			type:       'library',
-			domain:     'domain2',
-			subdomain:  'subdomain2',
-			path:       'test2.ts',
-			content:    "//domain2,subdomain2\nexport const world = () => console.log('world');",
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-		}));
+		//insert.run(JSON.stringify({
+		//	tenant:     'core',
+		//	type:       'library',
+		//	domain:     'domain1',
+		//	subdomain:  'subdomain1',
+		//	path:       'test1.ts',
+		//	content:    "//domain1,subdomain1\nexport const hello = () => console.log('hello');",
+		//	created_at: new Date().toISOString(),
+		//	updated_at: new Date().toISOString(),
+		//}));
+		//insert.run(JSON.stringify({
+		//	tenant:     'core',
+		//	type:       'library',
+		//	domain:     'domain1',
+		//	subdomain:  'subdomain2',
+		//	path:       'test2.ts',
+		//	content:    "//domain1,subdomain2\nexport const world = () => console.log('world');",
+		//	created_at: new Date().toISOString(),
+		//	updated_at: new Date().toISOString(),
+		//}));
+		//insert.run(JSON.stringify({
+		//	tenant:     'core',
+		//	type:       'library',
+		//	domain:     'domain2',
+		//	subdomain:  'subdomain1',
+		//	path:       'test1.ts',
+		//	content:    "//domain2,subdomain1\nexport const hello = () => console.log('hello');",
+		//	created_at: new Date().toISOString(),
+		//	updated_at: new Date().toISOString(),
+		//}));
+		//insert.run(JSON.stringify({
+		//	tenant:     'core',
+		//	type:       'library',
+		//	domain:     'domain2',
+		//	subdomain:  'subdomain2',
+		//	path:       'test2.ts',
+		//	content:    "//domain2,subdomain2\nexport const world = () => console.log('world');",
+		//	created_at: new Date().toISOString(),
+		//	updated_at: new Date().toISOString(),
+		//}));
 
 		this.response.sendStatus(200);
 	}

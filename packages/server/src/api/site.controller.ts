@@ -1,25 +1,37 @@
-import { readFile } from 'fs/promises';
 import { Endpoint } from '../app/endpoint.ts';
+import { getModule, moduleImportToParts } from './module-service.ts';
 
-class GetAllPaths extends Endpoint {
+
+class SiteRedirect extends Endpoint {
 
 	protected override configure(): void {
-		this.get('/site');
+		this.get('/*');
 	}
 
-	protected override async handle(): Promise<void> {
-		let file = await readFile('src/site/index.html', 'utf-8');
-		file = file.replace(
-			'<head>', str => str + '\n\t'
-			+ '<script type="importmap">'
-			+ '{"imports":{"@/":"./api/modules/"}}'
-			+ '</script>',
-		);
+	protected routes: Record<string, string> = {
+		'/': 'domain1/subdomain1/index.html',
+	};
 
-		this.response.send(file);
+	protected override async handle(): Promise<any> {
+		const route = this.routes[this.request.url];
+		if (route) {
+			const { domain, subdomain, path } = moduleImportToParts(route);
+			const module = getModule(domain, subdomain, path);
+			if (!module)
+				return;
+
+			const content = module.content.replace(
+				'<head>', str => str + '\n\t'
+				+ '<script type="importmap">'
+				+ '{"imports":{"@/":"./api/modules/"}}'
+				+ '</script>',
+			);
+
+			return this.response.send(content);
+		}
 	}
 
 }
 
 
-export default [ GetAllPaths ];
+export default [ SiteRedirect ];

@@ -1,4 +1,5 @@
 import type { Request, RequestHandler, Response } from 'express';
+import type { ControllerMethod } from './file-routes.ts';
 
 
 export type EndpointHandler<TRequestModel = any, TResponseModel = any> = (
@@ -35,12 +36,6 @@ export abstract class Endpoint<TRequestModel = any, TResponseModel = any> {
 			throw new TypeError('Missing path');
 		if (this.#method === undefined)
 			throw new TypeError('Missing method');
-
-		return {
-			path:     this.#path,
-			method:   this.#method,
-			handlers: this.#handlers,
-		} as any;
 	}
 
 	#path?:    string;
@@ -52,6 +47,14 @@ export abstract class Endpoint<TRequestModel = any, TResponseModel = any> {
 
 	protected abstract configure(): void;
 	protected abstract handle(): void | Promise<void>;
+
+	public toHandler() {
+		return {
+			path:     this.#path,
+			method:   this.#method,
+			handlers: this.#handlers,
+		} as ControllerMethod;
+	}
 
 	protected get(path: string)    { this.setPathAndMethod(path, 'get');	   }
 	protected post(path: string)   { this.setPathAndMethod(path, 'post');	}

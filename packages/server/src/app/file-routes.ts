@@ -52,14 +52,14 @@ export const registerControllers = async (
 		let method = m as ControllerMethod;
 
 		if (isClass(m))
-			method = new m();
+			method = (new m()).toHandler();
 
 		app[method.method](method.path, method.handlers);
 	}));
 };
 
 
-export const isClass = (obj: any): obj is new () => ControllerMethod => {
+export const isClass = (obj: any): obj is new () => Endpoint => {
 	if (typeof obj !== 'function')
 		return false;
 

@@ -1,6 +1,7 @@
 import type { ExpressController } from '@roenlie/ferrite-server/app/file-routes.ts';
 import { SQLite } from '../app/database.ts';
 import { Endpoint } from '../app/endpoint.ts';
+import { createCacheSlug, tsCache } from './transpile-ts.ts';
 
 
 export interface CodeModule {
@@ -48,7 +49,9 @@ class GetAllDomains extends Endpoint {
 		SELECT DISTINCT
 			data ->> '$.domain' as domain
 		FROM
-			modules;
+			modules
+		WHERE
+			data ->> '$.tenant' = 'core';
 		`).all().map(r => r.domain);
 
 		this.response.send(files);
@@ -75,8 +78,9 @@ class GetSubdomains extends Endpoint {
 			data ->> '$.subdomain' as subdomain
 		FROM
 			modules
-		WHERE
-			data ->> '$.domain' = (?);
+		WHERE 1 = 1
+			AND data ->> '$.tenant' = 'core'
+			AND data ->> '$.domain' = (?);
 		`).all(domain).map(r => r.subdomain);
 
 		this.response.send(files);
@@ -100,7 +104,9 @@ class GetAllDomainsAndSubdomains extends Endpoint {
 			SELECT DISTINCT
 				data ->> '$.domain' as domain
 			FROM
-				modules;
+				modules
+			WHERE
+				data ->> '$.tenant' = 'core';
 			`).all().map(r => r.domain);
 
 			for (const domain of domains) {
@@ -109,8 +115,9 @@ class GetAllDomainsAndSubdomains extends Endpoint {
 					data ->> '$.subdomain' as subdomain
 				FROM
 					modules
-				WHERE
-					data ->> '$.domain' = (?)
+				WHERE 1 = 1
+					AND data ->> '$.tenant' = 'core'
+					AND data ->> '$.domain' = (?)
 				`).all(domain).map(r => r.subdomain);
 
 				domainMap.set(domain, subdomains);
@@ -133,7 +140,8 @@ class GetModulesInSubdomain extends Endpoint {
 	}
 
 	protected override handle(): void | Promise<void> {
-		const { domain, subdomain, path } = this.request.query as {
+		const { tenant = 'core', domain, subdomain, path } = this.request.query as {
+			tenant:    string;
 			domain:    string;
 			subdomain: string;
 			path?:     string;
@@ -142,16 +150,20 @@ class GetModulesInSubdomain extends Endpoint {
 		using db = new SQLite();
 
 		if (path) {
-			const module = db.prepare<[string, string, string], { data: string; }>(/* sql */`
+			const module = db.prepare<
+				[string, string, string, string],
+				{ data: string; }
+			>(/* sql */`
 			SELECT
 				data
 			FROM
 				modules
 			WHERE 1 = 1
-				AND data ->> '$.domain' = (?)
+				AND data ->> '$.tenant'    = (?)
+				AND data ->> '$.domain'    = (?)
 				AND data ->> '$.subdomain' = (?)
-				AND data ->> '$.path' = (?);
-			`).get(domain, subdomain, path);
+				AND data ->> '$.path'      = (?);
+			`).get(tenant, domain, subdomain, path);
 
 			if (!module)
 				this.response.sendStatus(404);
@@ -159,15 +171,16 @@ class GetModulesInSubdomain extends Endpoint {
 				this.response.send(JSON.parse(module?.data ?? '{}'));
 		}
 		else {
-			const modules = db.prepare<[string, string], { data: string; }>(/* sql */`
+			const modules = db.prepare<[string, string, string], { data: string; }>(/* sql */`
 			SELECT
 				data
 			FROM
 				modules
 			WHERE 1 = 1
-				AND data ->> '$.domain' = (?)
+				AND data ->> '$.tenant'    = (?)
+				AND data ->> '$.domain'    = (?)
 				AND data ->> '$.subdomain' = (?);
-			`).all(domain, subdomain).map(r => JSON.parse(r.data));
+			`).all(tenant, domain, subdomain).map(r => JSON.parse(r.data));
 
 			this.response.send(modules);
 		}
@@ -185,7 +198,8 @@ class GetCodeModule extends Endpoint {
 	protected override handle(): void | Promise<void> {
 		using db = new SQLite();
 
-		const { domain, subdomain, path } = this.request.query as {
+		const { tenant = 'core', domain, subdomain, path } = this.request.query as {
+			tenant:    string;
 			domain:    string;
 			subdomain: string;
 			path:      string;
@@ -197,6 +211,7 @@ class GetCodeModule extends Endpoint {
 		FROM
 			modules
 		WHERE 1 = 1
+			AND data ->> '$.tenant'    = (?)
 			AND data ->> '$.domain'    = (?)
 			AND data ->> '$.subdomain' = (?)
 			AND data ->> '$.path'      = (?)
@@ -217,14 +232,15 @@ class insertModuleInSubdomain extends Endpoint {
 	protected override handle(): void | Promise<void> {
 		using db = new SQLite();
 
-		const { domain, subdomain, path } = this.request.query as {
+		const { tenant = 'core', domain, subdomain, path } = this.request.query as {
+			tenant:    string;
 			domain:    string;
 			subdomain: string;
 			path:      string;
 		};
 
 		const data = {
-			tenant:     'core',
+			tenant,
 			type:       'library',
 			domain,
 			subdomain,
@@ -234,13 +250,14 @@ class insertModuleInSubdomain extends Endpoint {
 			updated_at: new Date().toISOString(),
 		};
 
-		console.log('new:', data);
-
 		db.prepare<[string], { data: string }>(/* sql */`
 		INSERT INTO modules (data) VALUES(json(?));
 		`).run(JSON.stringify(data));
 
 		this.response.sendStatus(200);
+
+		const cacheSlug = createCacheSlug(data);
+		tsCache.delete(cacheSlug);
 	}
 
 }
@@ -255,24 +272,29 @@ class UpdateModuleInSubdomain extends Endpoint {
 	protected override handle(): any | Promise<any> {
 		using db = new SQLite();
 
-		const { domain, subdomain, path } = this.request.query as {
+		const { tenant = 'core', domain, subdomain, path } = this.request.query as {
+			tenant:    string;
 			domain:    string;
 			subdomain: string;
 			path:      string;
 		};
 
-		const existing = db.prepare<[string, string, string], { data: string }>(/* sql */`
+		const existing = db.prepare<
+			[string, string, string, string],
+			{ data: string }
+		>(/* sql */`
 		SELECT
 			data
 		FROM
 			modules
 		WHERE 1 = 1
+			AND data ->> '$.tenant'    = (?)
 			AND data ->> '$.domain'    = (?)
 			AND data ->> '$.subdomain' = (?)
 			AND data ->> '$.path'      = (?)
 		LIMIT
 			1;
-		`).get(domain, subdomain, path);
+		`).get(tenant, domain, subdomain, path);
 
 		if (!existing?.data)
 			return this.response.sendStatus(404);
@@ -288,16 +310,20 @@ class UpdateModuleInSubdomain extends Endpoint {
 		SET
 			data = json(?)
 		WHERE 1 = 1
+			AND data ->> '$.tenant'    = (?)
 			AND data ->> '$.domain'    = (?)
 			AND data ->> '$.subdomain' = (?)
 			AND data ->> '$.path'      = (?)
 		LIMIT
 			1;
-		`).run(JSON.stringify(existingObj), domain, subdomain, path);
+		`).run(JSON.stringify(existingObj), tenant, domain, subdomain, path);
 
 		console.log('update:', existingObj);
 
 		this.response.sendStatus(200);
+
+		const cacheSlug = createCacheSlug(existingObj);
+		tsCache.delete(cacheSlug);
 	}
 
 }
@@ -312,7 +338,8 @@ class DeleteModuleInSubdomain extends Endpoint {
 	protected override handle(): void | Promise<void> {
 		using db = new SQLite();
 
-		const { domain, subdomain, path } = this.request.query as {
+		const { tenant = 'core', domain, subdomain, path } = this.request.query as {
+			tenant:    string;
 			domain:    string;
 			subdomain: string;
 			path:      string;
@@ -328,16 +355,20 @@ class DeleteModuleInSubdomain extends Endpoint {
 		DELETE FROM
 			modules
 		WHERE 1 = 1
+			AND data ->> '$.tenant'    = (?)
 			AND data ->> '$.domain'    = (?)
 			AND data ->> '$.subdomain' = (?)
 			AND data ->> '$.path'      = (?)
 		LIMIT
 			1;
-		`).run(domain, subdomain, path);
+		`).run(tenant, domain, subdomain, path);
 
 		console.log('delete:', data);
 
 		this.response.sendStatus(200);
+
+		const cacheSlug = createCacheSlug({ tenant, domain, subdomain, path });
+		tsCache.delete(cacheSlug);
 	}
 
 }

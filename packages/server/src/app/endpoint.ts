@@ -1,5 +1,5 @@
 import type { Request, RequestHandler, Response } from 'express';
-import type { ControllerMethod } from './file-routes.ts';
+import type { ControllerMethod } from './endpoint-mapper.ts';
 
 
 export type EndpointHandler<TRequestModel = any, TResponseModel = any> = (
@@ -21,7 +21,7 @@ export type RequestMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
 export abstract class Endpoint<TRequestModel = any, TResponseModel = any> {
 
 	constructor() {
-		this.configure();
+		this.configure?.();
 
 		if (this.handle === undefined)
 			throw new TypeError('Missing handle implementation');
@@ -38,6 +38,7 @@ export abstract class Endpoint<TRequestModel = any, TResponseModel = any> {
 			throw new TypeError('Missing method');
 	}
 
+	#order = 0;
 	#path?:    string;
 	#method?:  RequestMethod;
 	#handlers: RequestHandler[] = [];
@@ -45,24 +46,30 @@ export abstract class Endpoint<TRequestModel = any, TResponseModel = any> {
 	protected request:  EndpointRequest<TRequestModel, TResponseModel>;
 	protected response: EndpointResponse<TResponseModel>;
 
-	protected abstract configure(): void;
-	protected abstract handle(): void | Promise<void>;
+	protected configure?(): any;
+	protected abstract handle(): any | Promise<any>;
 
-	public toHandler() {
+	public toHandler(): ControllerMethod {
+		if (!this.#path)
+			throw new TypeError('Missing path');
+		if (!this.#method)
+			throw new TypeError('Missing method');
+
 		return {
+			order:    this.#order,
 			path:     this.#path,
 			method:   this.#method,
 			handlers: this.#handlers,
-		} as ControllerMethod;
+		};
 	}
 
-	protected get(path: string)    { this.setPathAndMethod(path, 'get');	   }
-	protected post(path: string)   { this.setPathAndMethod(path, 'post');	}
-	protected put(path: string)    { this.setPathAndMethod(path, 'put');	   }
-	protected patch(path: string)  { this.setPathAndMethod(path, 'patch');	}
-	protected delete(path: string) { this.setPathAndMethod(path, 'delete');	}
+	protected get(path: string)    { this.#setPathAndMethod(path, 'get');	   }
+	protected post(path: string)   { this.#setPathAndMethod(path, 'post');	}
+	protected put(path: string)    { this.#setPathAndMethod(path, 'put');	   }
+	protected patch(path: string)  { this.#setPathAndMethod(path, 'patch');	}
+	protected delete(path: string) { this.#setPathAndMethod(path, 'delete');	}
 
-	protected setPathAndMethod(path: string, method: RequestMethod) {
+	#setPathAndMethod(path: string, method: RequestMethod) {
 		this.#path = path;
 		this.#method = method;
 	}
@@ -72,3 +79,57 @@ export abstract class Endpoint<TRequestModel = any, TResponseModel = any> {
 	}
 
 }
+
+
+export const method = {
+	get: <T extends new (...args: any) => Endpoint>(path: string) => {
+		// @ts-expect-error
+		return (base: T): T => class extends base {
+
+			protected override configure() {
+				this.get(path);
+			}
+
+		};
+	},
+	post: <T extends new (...args: any) => Endpoint>(path: string) => {
+		// @ts-expect-error
+		return (base: T): T => class extends base {
+
+			protected override configure() {
+				this.post(path);
+			}
+
+		};
+	},
+	put: <T extends new (...args: any) => Endpoint>(path: string) => {
+		// @ts-expect-error
+		return (base: T): T => class extends base {
+
+			protected override configure() {
+				this.put(path);
+			}
+
+		};
+	},
+	patch: <T extends new (...args: any) => Endpoint>(path: string) => {
+		// @ts-expect-error
+		return (base: T): T => class extends base {
+
+			protected override configure() {
+				this.patch(path);
+			}
+
+		};
+	},
+	delete: <T extends new (...args: any) => Endpoint>(path: string) => {
+		// @ts-expect-error
+		return (base: T): T => class extends base {
+
+			protected override configure() {
+				this.delete(path);
+			}
+
+		};
+	},
+};

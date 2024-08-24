@@ -1,13 +1,10 @@
-import { Endpoint } from '../app/endpoint.ts';
+import { Endpoint, method } from '../app/endpoint.ts';
 import { getModule, moduleImportToParts } from './module-service.ts';
 import { createCacheSlug, handleTypescript } from './transpile-ts.ts';
 
 
+@method.get('/api/modules/*')
 class GetModule extends Endpoint {
-
-	protected override configure(): void {
-		this.get('/api/modules/*');
-	}
 
 	protected override async handle(): Promise<any> {
 		const url = this.request.params['0'];

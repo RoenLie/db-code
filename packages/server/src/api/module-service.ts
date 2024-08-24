@@ -37,3 +37,21 @@ export const getModule = (domain: string, subdomain: string, path: string) => {
 
 	return JSON.parse(module.data) as CodeModule;
 };
+
+
+export const getAllModulesInSubdomain = (domain: string, subdomain: string) => {
+	using db = new SQLite();
+	const modules = db.prepare<[string, string], { data: string; }>(/* sql */`
+		SELECT
+			data
+		FROM
+			modules
+		WHERE 1 = 1
+			AND data ->> '$.tenant'    = 'core'
+			AND data ->> '$.domain'    = (?)
+			AND data ->> '$.subdomain' = (?);
+		`).all(domain, subdomain)
+		.map(r => JSON.parse(r.data) as CodeModule);
+
+	return modules;
+};

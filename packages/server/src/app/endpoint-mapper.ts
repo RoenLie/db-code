@@ -1,7 +1,7 @@
 import type { RequestHandler, Express } from 'express';
 import { glob } from 'node:fs/promises';
 
-import { app } from '../app/main.js';
+import { app } from './main.js';
 import { basename, join, resolve } from 'path';
 import { Endpoint } from './endpoint.js';
 
@@ -11,16 +11,17 @@ const patternCache = new Set<string>();
 
 
 export interface ControllerMethod {
+	order:    number;
 	path:     string;
 	method:   Extract<keyof Express, 'get' | 'put' | 'post' | 'patch' | 'delete'>;
-	handlers: RequestHandler[]
+	handlers: RequestHandler[];
 }
 
 
 export type ExpressController = (ControllerMethod | typeof Endpoint)[];
 
 
-export const registerControllers = async (
+export const registerEndpoints = async (
 	/** Glob pattern for finding the controllers you want to automatically register. */
 	pattern: string,
 ) => {

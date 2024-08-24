@@ -1,7 +1,8 @@
-import type { ExpressController } from '@roenlie/ferrite-server/app/file-routes.ts';
+import type { ExpressController } from '@roenlie/ferrite-server/app/endpoint-mapper.ts';
 import { SQLite } from '../app/database.ts';
-import { Endpoint } from '../app/endpoint.ts';
+import { Endpoint, method } from '../app/endpoint.ts';
 import { createCacheSlug, tsCache } from './transpile-ts.ts';
+import { getAllModulesInSubdomain, getModule } from './module-service.ts';
 
 
 export interface CodeModule {
@@ -16,13 +17,10 @@ export interface CodeModule {
 }
 
 
+@method.get('/api/code/all')
 class GetAllPaths extends Endpoint {
 
-	protected override configure(): void {
-		this.get('/api/code/all');
-	}
-
-	protected override handle(): void | Promise<void> {
+	protected override handle(): any | Promise<any> {
 		using db = new SQLite();
 
 		const files = db.prepare<unknown[], { data: string; }>(/* sql */`
@@ -36,13 +34,10 @@ class GetAllPaths extends Endpoint {
 }
 
 
+@method.get('/api/code/domain')
 class GetAllDomains extends Endpoint {
 
-	protected override configure(): void {
-		this.get('/api/code/domain');
-	}
-
-	protected override handle(): void | Promise<void> {
+	protected override handle(): any | Promise<any> {
 		using db = new SQLite();
 
 		const files = db.prepare<unknown[], { domain: string; }>(/* sql */`
@@ -60,13 +55,10 @@ class GetAllDomains extends Endpoint {
 }
 
 
+@method.get('/api/code/subdomain')
 class GetSubdomains extends Endpoint {
 
-	protected override configure(): void {
-		this.get('/api/code/subdomain');
-	}
-
-	protected override handle(): void | Promise<void> {
+	protected override handle(): any | Promise<any> {
 		const { domain } = this.request.query as {
 			domain: string;
 		};
@@ -89,13 +81,10 @@ class GetSubdomains extends Endpoint {
 }
 
 
+@method.get('/api/code/domains-and-subdomains')
 class GetAllDomainsAndSubdomains extends Endpoint {
 
-	protected override configure(): void {
-		this.get('/api/code/domains-and-subdomains');
-	}
-
-	protected override handle(): void | Promise<void> {
+	protected override handle(): any | Promise<any> {
 		using db = new SQLite();
 
 		const transaction = db.transaction(() => {
@@ -134,103 +123,38 @@ class GetAllDomainsAndSubdomains extends Endpoint {
 }
 
 
+@method.get('/api/code/module')
 class GetModulesInSubdomain extends Endpoint {
 
-	protected override configure(): void {
-		this.get('/api/code/module');
-	}
-
-	protected override handle(): void | Promise<void> {
-		const { tenant = 'core', domain, subdomain, path } = this.request.query as {
-			tenant:    string;
+	protected override handle(): any | Promise<any> {
+		const { domain, subdomain, path } = this.request.query as {
 			domain:    string;
 			subdomain: string;
 			path?:     string;
 		};
 
-		using db = new SQLite();
-
 		if (path) {
-			const module = db.prepare<
-				[string, string, string, string],
-				{ data: string; }
-			>(/* sql */`
-			SELECT
-				data
-			FROM
-				modules
-			WHERE 1 = 1
-				AND data ->> '$.tenant'    = (?)
-				AND data ->> '$.domain'    = (?)
-				AND data ->> '$.subdomain' = (?)
-				AND data ->> '$.path'      = (?);
-			`).get(tenant, domain, subdomain, path);
-
+			const module = getModule(domain, subdomain, path);
 			if (!module)
-				this.response.sendStatus(404);
-			else
-				this.response.send(JSON.parse(module?.data ?? '{}'));
-		}
-		else {
-			const modules = db.prepare<[string, string, string], { data: string; }>(/* sql */`
-			SELECT
-				data
-			FROM
-				modules
-			WHERE 1 = 1
-				AND data ->> '$.tenant'    = (?)
-				AND data ->> '$.domain'    = (?)
-				AND data ->> '$.subdomain' = (?);
-			`).all(tenant, domain, subdomain).map(r => JSON.parse(r.data));
+				return this.response.sendStatus(404);
 
-			this.response.send(modules);
+			return this.response.send(module);
 		}
+
+		const modules = getAllModulesInSubdomain(domain, subdomain);
+		if (!modules.length)
+			return this.response.sendStatus(404);
+
+		this.response.send(modules);
 	}
 
 }
 
 
-class GetCodeModule extends Endpoint {
-
-	protected override configure(): void {
-		this.get('/api/code/content');
-	}
-
-	protected override handle(): void | Promise<void> {
-		using db = new SQLite();
-
-		const { tenant = 'core', domain, subdomain, path } = this.request.query as {
-			tenant:    string;
-			domain:    string;
-			subdomain: string;
-			path:      string;
-		};
-
-		const module = db.prepare<[string, string, string], { data: string }>(/* sql */`
-		SELECT
-			data
-		FROM
-			modules
-		WHERE 1 = 1
-			AND data ->> '$.tenant'    = (?)
-			AND data ->> '$.domain'    = (?)
-			AND data ->> '$.subdomain' = (?)
-			AND data ->> '$.path'      = (?)
-		`).get(domain, subdomain, path);
-
-		this.response.send(JSON.parse(module!.data));
-	}
-
-}
-
-
+@method.post('/api/code/module/new')
 class insertModuleInSubdomain extends Endpoint {
 
-	protected override configure(): void {
-		this.post('/api/code/module/new');
-	}
-
-	protected override handle(): void | Promise<void> {
+	protected override handle(): any | Promise<any> {
 		using db = new SQLite();
 
 		const { tenant = 'core', domain, subdomain, path } = this.request.query as {
@@ -264,11 +188,8 @@ class insertModuleInSubdomain extends Endpoint {
 }
 
 
+@method.patch('/api/code/module/update')
 class UpdateModuleInSubdomain extends Endpoint {
-
-	protected override configure(): void {
-		this.patch('/api/code/module/update');
-	}
 
 	protected override handle(): any | Promise<any> {
 		using db = new SQLite();
@@ -330,13 +251,10 @@ class UpdateModuleInSubdomain extends Endpoint {
 }
 
 
+@method.delete('/api/code/module/delete')
 class DeleteModuleInSubdomain extends Endpoint {
 
-	protected override configure(): void {
-		this.delete('/api/code/module/delete');
-	}
-
-	protected override handle(): void | Promise<void> {
+	protected override handle(): any | Promise<any> {
 		using db = new SQLite();
 
 		const { tenant = 'core', domain, subdomain, path } = this.request.query as {
@@ -375,13 +293,10 @@ class DeleteModuleInSubdomain extends Endpoint {
 }
 
 
+@method.get('/api/code/initialize')
 class CreateDemoData extends Endpoint {
 
-	protected override configure(): void {
-		this.get('/api/code/initialize');
-	}
-
-	protected override handle(): void | Promise<void> {
+	protected override handle(): any | Promise<any> {
 		using db = new SQLite();
 
 		db.prepare(/* sql */`
@@ -395,42 +310,52 @@ class CreateDemoData extends Endpoint {
 		//DELETE FROM modules
 		//`).run();
 
-		const insert = db.prepare<[string]>(/* sql */`
-		INSERT INTO modules (data) VALUES(json(?));
-		`);
+		//const insert = db.prepare<[string]>(/* sql */`
+		//INSERT INTO modules (data) VALUES(json(?));
+		//`);
 
-		insert.run(JSON.stringify({
-			tenant:    'core',
-			type:      'site',
-			domain:    'domain1',
-			subdomain: 'subdomain1',
-			path:      'index.html',
-			content:   `<!DOCTYPE html>
-			<html lang="en">
-			<head>
-				<meta charset="UTF-8">
-				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-				<title>Document</title>
-				<style>
-					body {
-						background-color: grey;
-					}
-				</style>
-				<script type="module">
-					import { hello, world } from '@/domain1/subdomain1/test1.ts'
-					hello();
-					world();
-				</script>
-			</head>
-			<body>
-			<div>
-				Hello there, this is pretty cool that it works...
-			</div>
-			</body>
-			</html>`,
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-		}));
+		//insert.run(JSON.stringify({
+		//	tenant:     'core',
+		//	type:       'library',
+		//	domain:     'std',
+		//	subdomain:  'site',
+		//	path:       'redirect-config.json',
+		//	content:    '{"/": "domain1/subdomain1/index.html"}',
+		//	created_at: new Date().toISOString(),
+		//	updated_at: new Date().toISOString(),
+		//}));
+		//insert.run(JSON.stringify({
+		//	tenant:    'core',
+		//	type:      'site',
+		//	domain:    'domain1',
+		//	subdomain: 'subdomain1',
+		//	path:      'index.html',
+		//	content:   `<!DOCTYPE html>
+		//	<html lang="en">
+		//	<head>
+		//		<meta charset="UTF-8">
+		//		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		//		<title>Document</title>
+		//		<style>
+		//			body {
+		//				background-color: grey;
+		//			}
+		//		</style>
+		//		<script type="module">
+		//			import { hello, world } from '@/domain1/subdomain1/test1.ts'
+		//			hello();
+		//			world();
+		//		</script>
+		//	</head>
+		//	<body>
+		//	<div>
+		//		Hello there, this is pretty cool that it works...
+		//	</div>
+		//	</body>
+		//	</html>`,
+		//	created_at: new Date().toISOString(),
+		//	updated_at: new Date().toISOString(),
+		//}));
 		//insert.run(JSON.stringify({
 		//	tenant:     'core',
 		//	type:       'library',
@@ -484,7 +409,6 @@ export default [
 	GetSubdomains,
 	GetAllDomainsAndSubdomains,
 	GetModulesInSubdomain,
-	GetCodeModule,
 	insertModuleInSubdomain,
 	UpdateModuleInSubdomain,
 	DeleteModuleInSubdomain,

@@ -1,9 +1,9 @@
-import { registerControllers } from './app/file-routes.js';
+import { registerEndpoints } from './app/endpoint-mapper.js';
 import { server } from './app/main.js';
 //import { siteRedirect } from './app/site-redirect.js';
 
 
-await registerControllers('src/api/**.controller.ts');
+await registerEndpoints('src/api/**.controller.ts');
 
 
 const serverUrl = new URL(process.env.URL);

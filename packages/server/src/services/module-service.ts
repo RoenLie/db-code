@@ -1,5 +1,5 @@
 import { SQLite } from '../app/database.ts';
-import type { CodeModule } from './code.controller.ts';
+import type { CodeModule } from '../api/code.controller.ts';
 
 
 export const moduleImportToParts = (importPath: string) => {

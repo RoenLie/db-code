@@ -1,5 +1,5 @@
 import { Endpoint, method } from '../app/endpoint.ts';
-import { getModule, moduleImportToParts } from './module-service.ts';
+import { getModule, moduleImportToParts } from '../services/module-service.ts';
 
 
 @method.get('*')
@@ -28,6 +28,8 @@ class SiteRedirect extends Endpoint {
 
 			return this.response.send(content);
 		}
+
+		this.response.sendStatus(404);
 	}
 
 }

@@ -1,8 +1,7 @@
-import type { ExpressController } from '@roenlie/ferrite-server/app/endpoint-mapper.ts';
 import { SQLite } from '../app/database.ts';
 import { Endpoint, method } from '../app/endpoint.ts';
-import { createCacheSlug, tsCache } from './transpile-ts.ts';
-import { getAllModulesInSubdomain, getModule } from './module-service.ts';
+import { createCacheSlug, tsCache } from '../services/transpile-ts.ts';
+import { getAllModulesInSubdomain, getModule } from '../services/module-service.ts';
 
 
 export interface CodeModule {
@@ -116,8 +115,8 @@ class GetAllDomainsAndSubdomains extends Endpoint {
 			return domainMap;
 		});
 
-
-		this.response.send([ ...transaction() ]);
+		const result = [ ...transaction() ];
+		this.response.send(result);
 	}
 
 }
@@ -240,7 +239,7 @@ class UpdateModuleInSubdomain extends Endpoint {
 			1;
 		`).run(JSON.stringify(existingObj), tenant, domain, subdomain, path);
 
-		console.log('update:', existingObj);
+		//console.log('update:', existingObj);
 
 		this.response.sendStatus(200);
 
@@ -264,12 +263,6 @@ class DeleteModuleInSubdomain extends Endpoint {
 			path:      string;
 		};
 
-		const data = {
-			domain,
-			subdomain,
-			path,
-		};
-
 		db.prepare(/* sql */`
 		DELETE FROM
 			modules
@@ -281,8 +274,6 @@ class DeleteModuleInSubdomain extends Endpoint {
 		LIMIT
 			1;
 		`).run(tenant, domain, subdomain, path);
-
-		console.log('delete:', data);
 
 		this.response.sendStatus(200);
 
@@ -413,4 +404,4 @@ export default [
 	UpdateModuleInSubdomain,
 	DeleteModuleInSubdomain,
 	CreateDemoData,
-] as ExpressController;
+];

@@ -18,10 +18,28 @@ export interface ControllerMethod {
 }
 
 
-export type ExpressController = (ControllerMethod | typeof Endpoint)[];
+export type ExpressController = (ControllerMethod | (new () => Endpoint))[];
+
+const requiredKeys = new Set([ 'order', 'path', 'method', 'handlers' ]);
+const isControllerMethod = (obj: any): obj is ControllerMethod => {
+	if (typeof obj !== 'object')
+		return false;
+
+	const keys = new Set(Object.keys(obj));
+	if (keys.size !== 4)
+		return false;
+
+	if (keys.isSupersetOf(requiredKeys))
+		return true;
+
+	return false;
+};
 
 
-export const registerEndpoints = async (
+const endpointPromises: Promise<ExpressController>[] = [];
+
+
+export const mapEndpoints = async (
 	/** Glob pattern for finding the controllers you want to automatically register. */
 	pattern: string,
 ) => {
@@ -44,19 +62,8 @@ export const registerEndpoints = async (
 				return !!registerCache.add(path);
 		});
 
-	const promises = filesToRegister
-		.map(async path => await import(path).then(m => m.default));
-
-	const imports: ExpressController[] = await Promise.all(promises);
-
-	imports.forEach(methods => methods.forEach(m => {
-		let method = m as ControllerMethod;
-
-		if (isClass(m))
-			method = (new m()).toHandler();
-
-		app[method.method](method.path, method.handlers);
-	}));
+	endpointPromises.push(...filesToRegister
+		.map(async path => await import(path).then(m => m.default)));
 };
 
 
@@ -69,4 +76,34 @@ export const isClass = (obj: any): obj is new () => Endpoint => {
 		return false;
 
 	return !descriptor.writable;
+};
+
+
+export const registerEndpoints = async () => {
+	const imports: ExpressController[] = await Promise.all(endpointPromises);
+
+	const methods = imports.flatMap(methods => methods
+		.map(m => isClass(m) ? (new m()).toHandler() : m))
+		.filter(m => isControllerMethod(m));
+
+	// Sort the endpoints by segment count.
+	// paths ending in * will have lower priority within their segment count.
+	// This should ensure that more spesific endpoints
+	// have higher priority.
+	methods.sort((a, b) => {
+		let aPathSegments = a.path.split('/').length;
+		let bPathSegments = b.path.split('/').length;
+
+		if (aPathSegments === bPathSegments) {
+			if (a.path.endsWith('*'))
+				aPathSegments -= 1;
+			if (b.path.endsWith('*'))
+				bPathSegments -= 1;
+		}
+
+		return bPathSegments - aPathSegments;
+	});
+
+	for (const method of methods)
+		app[method.method](method.path, method.handlers);
 };

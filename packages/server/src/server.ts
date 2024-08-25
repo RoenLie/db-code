@@ -1,22 +1,12 @@
-import { registerEndpoints } from './app/endpoint-mapper.js';
+import { mapEndpoints, registerEndpoints } from './app/endpoint-mapper.js';
 import { server } from './app/main.js';
-//import { siteRedirect } from './app/site-redirect.js';
 
 
-await registerEndpoints('src/api/**.controller.ts');
+await mapEndpoints('src/api/**.controller.ts');
+await registerEndpoints();
 
 
 const serverUrl = new URL(process.env.URL);
-
-//server.addListener('request', (req, res) => {
-//	const url = new URL(`http://${ process.env['HOST'] ??
-//		`localhost:${ serverUrl.port }` }${ req.url }`);
-
-//	console.log(url);
-//});
-
-//server.addListener('request', siteRedirect);
-
 server.listen(Number(serverUrl.port), serverUrl.hostname, () => {
 	console.log(`⚡️[server]: Server is running at ${ process.env.URL }`);
 });

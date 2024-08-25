@@ -1,6 +1,6 @@
 import { Endpoint, method } from '../app/endpoint.ts';
-import { getModule, moduleImportToParts } from './module-service.ts';
-import { createCacheSlug, handleTypescript } from './transpile-ts.ts';
+import { getModule, moduleImportToParts } from '../services/module-service.ts';
+import { createCacheSlug, handleTypescript } from '../services/transpile-ts.ts';
 
 
 @method.get('/api/modules/*')

@@ -1,5 +1,5 @@
 import ts from 'typescript';
-import type { CodeModule } from './code.controller.ts';
+import type { CodeModule } from '../api/code.controller.ts';
 
 
 export const tsCache = new Map<string, string>();

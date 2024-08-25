@@ -13,6 +13,7 @@
 		"dev": "tsx watch src/server.ts"
 	},
 	"dependencies": {
+		"@roenlie/core": "^1.0.0",
 		"@roenlie/ferrite-server": "file:.",
 		"better-sqlite3": "^11.1.2",
 		"cors": "^2.8.5",
@@ -21,6 +22,7 @@
 		"express": "^4.19.2",
 		"formidable": "^3.5.1",
 		"mime": "^4.0.3",
+		"tar": "^7.4.3",
 		"tsx": "^4.16.5",
 		"typescript": "^5.5.4"
 	},

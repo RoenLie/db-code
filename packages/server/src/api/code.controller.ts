@@ -256,7 +256,7 @@ class DeleteModuleInSubdomain extends Endpoint {
 	protected override handle(): any | Promise<any> {
 		using db = new SQLite();
 
-		const { tenant = 'core', domain, subdomain, path } = this.request.query as {
+		const { domain, subdomain, path } = this.request.query as {
 			tenant:    string;
 			domain:    string;
 			subdomain: string;
@@ -267,17 +267,17 @@ class DeleteModuleInSubdomain extends Endpoint {
 		DELETE FROM
 			modules
 		WHERE 1 = 1
-			AND data ->> '$.tenant'    = (?)
+			AND data ->> '$.tenant'    = 'core'
 			AND data ->> '$.domain'    = (?)
 			AND data ->> '$.subdomain' = (?)
 			AND data ->> '$.path'      = (?)
 		LIMIT
 			1;
-		`).run(tenant, domain, subdomain, path);
+		`).run(domain, subdomain, path);
 
 		this.response.sendStatus(200);
 
-		const cacheSlug = createCacheSlug({ tenant, domain, subdomain, path });
+		const cacheSlug = createCacheSlug({ tenant: 'core', domain, subdomain, path });
 		tsCache.delete(cacheSlug);
 	}
 

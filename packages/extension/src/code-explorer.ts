@@ -89,9 +89,12 @@ export class CodeExplorerView {
 				await writeFile(localFilePath, m.content, 'utf-8');
 
 			const remoteExists = existingRemotePaths.indexOf(remoteFilePath);
+			if (remoteExists > -1)
+				existingRemotePaths.splice(remoteExists, 1);
+
 			const localExists = existingLocalPaths.indexOf(localFilePath);
-			existingLocalPaths.splice(localExists, 1);
-			existingRemotePaths.splice(remoteExists, 1);
+			if (localExists > -1)
+				existingLocalPaths.splice(localExists, 1);
 		}));
 
 		existingRemotePaths = existingRemotePaths
@@ -103,11 +106,8 @@ export class CodeExplorerView {
 			await unlink(path);
 		}));
 
-		if (replaceLocal) {
-			await Promise.allSettled(existingLocalPaths.map(async path => {
-				await unlink(path);
-			}));
-		}
+		if (replaceLocal)
+			await Promise.allSettled(existingLocalPaths.map(async path => await unlink(path)));
 	}
 
 	protected async showSelectDomainPicker() {

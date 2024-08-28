@@ -27,7 +27,6 @@ export class InsertPackage extends Endpoint {
 		if (error)
 			return console.error(error), this.next();
 
-
 		const [ , files ] = result;
 		const file = Object.values(files).map(file => file![0]!).at(0)!;
 
@@ -87,9 +86,16 @@ const insertPackage = async (paths: string[]) => {
 			return console.error('No package json found, cannot continue.');
 
 		const packageJson = await readFile(packagePath, 'utf-8');
-		const packageObj = JSON.parse(packageJson);
-		const packageName = packageObj['name'];
-		const packageVersion = packageObj['version'];
+		const packageObj = JSON.parse(packageJson) as {
+			name:             string;
+			version:          string;
+			// TODO need to traverse these and download the tarball.
+			// Then repeat the insertion code that we are doing here.
+			dependencies:     Record<string, string>;
+			peerDependencies: Record<string, string>;
+		};
+		const packageName = packageObj.name;
+		const packageVersion = packageObj.version;
 
 		for await (let path of paths) {
 			// Get the content of the file prior to mutating the path.

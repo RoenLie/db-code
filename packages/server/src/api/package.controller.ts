@@ -3,8 +3,9 @@ import { Endpoint, method } from '../app/endpoint.ts';
 import { maybe } from '@roenlie/core/async';
 import { extract } from 'tar';
 import { basename, join, sep } from 'node:path';
-import { mkdir, readFile, rm } from 'node:fs/promises';
-import { SQLite } from '../app/database.ts';
+import { mkdir, rm } from 'node:fs/promises';
+import { createPkgDepBuckets, createPkgNodeTree, insertPackageFromPaths } from '../services/package-service.ts';
+import pacote from 'pacote';
 
 
 @method.get('/api/package/*')
@@ -12,6 +13,32 @@ export class GetPackage extends Endpoint {
 
 	protected override handle() {
 		console.log('get package');
+	}
+
+}
+
+@method.get('/api/package/install')
+export class InstallPackage extends Endpoint {
+
+	protected override async handle() {
+		const { name, version = 'latest' } = this.request.query as {
+			name?:    string;
+			version?: string;
+		};
+
+		if (!name)
+			return this.response.sendStatus(404);
+
+		const nodeTree = await createPkgNodeTree(name, version);
+		const buckets = createPkgDepBuckets(nodeTree);
+
+		const depLineage = buckets.reduceRight((acc, cur) => {
+			cur.forEach(dep => acc.add(dep));
+
+			return acc;
+		}, new Set<string>());
+
+		return this.response.send([ ...depLineage ]);
 	}
 
 }
@@ -48,7 +75,7 @@ export class InsertPackage extends Endpoint {
 		});
 
 		// Insert package into database.
-		await insertPackage(extractedPaths);
+		await insertPackageFromPaths(extractedPaths);
 
 		// Remove extracted files and the uploaded file.
 		await rm(file.filepath);
@@ -60,63 +87,8 @@ export class InsertPackage extends Endpoint {
 }
 
 
-const insertPackage = async (paths: string[]) => {
-	using db = new SQLite();
-
-	const transaction = db.transaction(async () => {
-		db.exec(/* sql */`
-		CREATE TABLE IF NOT EXISTS packages (
-			id INTEGER PRIMARY KEY,
-			path TEXT DEFAULT '' NOT NULL,
-			content TEXT DEFAULT '' NOT NULL
-		);
-		`);
-
-		db.exec(/* sql */`
-		DELETE FROM packages
-		`);
-
-		const insert = db.prepare(/* sql */`
-		INSERT INTO packages (path, content)
-		VALUES (?, ?)
-		`);
-
-		const packagePath = paths.find(path => path.endsWith('package.json'));
-		if (!packagePath)
-			return console.error('No package json found, cannot continue.');
-
-		const packageJson = await readFile(packagePath, 'utf-8');
-		const packageObj = JSON.parse(packageJson) as {
-			name:             string;
-			version:          string;
-			// TODO need to traverse these and download the tarball.
-			// Then repeat the insertion code that we are doing here.
-			dependencies:     Record<string, string>;
-			peerDependencies: Record<string, string>;
-		};
-		const packageName = packageObj.name;
-		const packageVersion = packageObj.version;
-
-		for await (let path of paths) {
-			// Get the content of the file prior to mutating the path.
-			const content = await readFile(path, 'utf-8');
-
-			// replace all windows seperators with posixs
-			path = path.replaceAll('\\', '/');
-			// get path without the part of this systems temp folder.
-			path = path.split('package/').at(-1)!;
-			// add package name and version infront of the path.
-			path = packageName + '/' + packageVersion + '/' + path;
-
-			insert.run(path, content);
-		}
-	});
-
-	await transaction();
-};
-
-
 export default [
 	GetPackage,
+	InstallPackage,
 	InsertPackage,
 ];

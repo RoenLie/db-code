@@ -1,7 +1,7 @@
 import { SQLite } from '../app/database.ts';
 import { Endpoint, method } from '../app/endpoint.ts';
 import { createCacheSlug, tsCache } from '../services/transpile-ts.ts';
-import { getAllModulesInSubdomain, getModule } from '../services/module-service.ts';
+import { deleteModule, getAllModulesInSubdomain, getModule, insertModule, newModule, updateModule } from '../services/module-service.ts';
 
 
 export interface CodeModule {
@@ -150,101 +150,34 @@ class GetModulesInSubdomain extends Endpoint {
 }
 
 
-@method.post('/api/code/module/new')
-class insertModuleInSubdomain extends Endpoint {
+@method.put('/api/code/module/upsert')
+class UpsertModuleInSubdomain extends Endpoint {
 
 	protected override handle(): any | Promise<any> {
-		using db = new SQLite();
-
-		const { tenant = 'core', domain, subdomain, path } = this.request.query as {
+		const { domain, subdomain, path } = this.request.query as {
 			tenant:    string;
 			domain:    string;
 			subdomain: string;
 			path:      string;
 		};
 
-		const data = {
-			tenant,
-			type:       'library',
-			domain,
-			subdomain,
-			path,
-			content:    this.request.body.data,
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-		};
+		const existingModule = getModule(domain, subdomain, path);
+		if (existingModule) {
+			existingModule.content = this.request.body.data;
+			updateModule(existingModule);
 
-		db.prepare<[string], { data: string }>(/* sql */`
-		INSERT INTO modules (data) VALUES(json(?));
-		`).run(JSON.stringify(data));
+			//console.log('update:', existingObj);
+			this.response.sendStatus(200);
+		}
+		else {
+			const module = newModule(domain, subdomain, path);
+			module.content = this.request.body.data;
 
-		this.response.sendStatus(200);
+			insertModule(module);
 
-		const cacheSlug = createCacheSlug(data);
-		tsCache.delete(cacheSlug);
-	}
-
-}
-
-
-@method.patch('/api/code/module/update')
-class UpdateModuleInSubdomain extends Endpoint {
-
-	protected override handle(): any | Promise<any> {
-		using db = new SQLite();
-
-		const { tenant = 'core', domain, subdomain, path } = this.request.query as {
-			tenant:    string;
-			domain:    string;
-			subdomain: string;
-			path:      string;
-		};
-
-		const existing = db.prepare<
-			[string, string, string, string],
-			{ data: string }
-		>(/* sql */`
-		SELECT
-			data
-		FROM
-			modules
-		WHERE 1 = 1
-			AND data ->> '$.tenant'    = (?)
-			AND data ->> '$.domain'    = (?)
-			AND data ->> '$.subdomain' = (?)
-			AND data ->> '$.path'      = (?)
-		LIMIT
-			1;
-		`).get(tenant, domain, subdomain, path);
-
-		if (!existing?.data)
-			return this.response.sendStatus(404);
-
-		const existingObj = JSON.parse(existing?.data) as CodeModule;
-
-		existingObj.content = this.request.body.data;
-		existingObj.updated_at = new Date().toISOString();
-
-		db.prepare(/* sql */`
-		UPDATE
-			modules
-		SET
-			data = json(?)
-		WHERE 1 = 1
-			AND data ->> '$.tenant'    = (?)
-			AND data ->> '$.domain'    = (?)
-			AND data ->> '$.subdomain' = (?)
-			AND data ->> '$.path'      = (?)
-		LIMIT
-			1;
-		`).run(JSON.stringify(existingObj), tenant, domain, subdomain, path);
-
-		//console.log('update:', existingObj);
-
-		this.response.sendStatus(200);
-
-		const cacheSlug = createCacheSlug(existingObj);
-		tsCache.delete(cacheSlug);
+			//console.log('insert:', data);
+			this.response.sendStatus(200);
+		}
 	}
 
 }
@@ -254,8 +187,6 @@ class UpdateModuleInSubdomain extends Endpoint {
 class DeleteModuleInSubdomain extends Endpoint {
 
 	protected override handle(): any | Promise<any> {
-		using db = new SQLite();
-
 		const { domain, subdomain, path } = this.request.query as {
 			tenant:    string;
 			domain:    string;
@@ -263,22 +194,10 @@ class DeleteModuleInSubdomain extends Endpoint {
 			path:      string;
 		};
 
-		db.prepare(/* sql */`
-		DELETE FROM
-			modules
-		WHERE 1 = 1
-			AND data ->> '$.tenant'    = 'core'
-			AND data ->> '$.domain'    = (?)
-			AND data ->> '$.subdomain' = (?)
-			AND data ->> '$.path'      = (?)
-		LIMIT
-			1;
-		`).run(domain, subdomain, path);
+		deleteModule(domain, subdomain, path);
 
+		//console.log('delete:', domain, subdomain, path);
 		this.response.sendStatus(200);
-
-		const cacheSlug = createCacheSlug({ tenant: 'core', domain, subdomain, path });
-		tsCache.delete(cacheSlug);
 	}
 
 }
@@ -299,6 +218,7 @@ class CreateDemoData extends Endpoint {
 
 		//db.prepare(/* sql */`
 		//DELETE FROM modules
+		//WHERE id = 10 OR id = 11 OR id = 12
 		//`).run();
 
 		//const insert = db.prepare<[string]>(/* sql */`
@@ -400,8 +320,7 @@ export default [
 	GetSubdomains,
 	GetAllDomainsAndSubdomains,
 	GetModulesInSubdomain,
-	insertModuleInSubdomain,
-	UpdateModuleInSubdomain,
+	UpsertModuleInSubdomain,
 	DeleteModuleInSubdomain,
 	CreateDemoData,
 ];

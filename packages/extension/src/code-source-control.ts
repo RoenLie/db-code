@@ -34,8 +34,8 @@ export class DbCodeSourceControl implements vscode.Disposable {
 		this.scm.inputBox.placeholder = 'Message';
 
 		const context = this.context;
-		const fileSystemWatcher = vscode.workspace
-			.createFileSystemWatcher(new vscode.RelativePattern(workspaceFolder, '*.*'));
+		const pattern = new vscode.RelativePattern(workspaceFolder, '**/*');
+		const fileSystemWatcher = vscode.workspace.createFileSystemWatcher(pattern);
 
 		fileSystemWatcher.onDidChange(uri => this.onResourceChange(uri), context.subscriptions);
 		fileSystemWatcher.onDidCreate(uri => this.onResourceChange(uri), context.subscriptions);
@@ -60,33 +60,6 @@ export class DbCodeSourceControl implements vscode.Disposable {
 				tooltip: 'Checkout another version of this fiddle.',
 			},
 		];
-	}
-
-	public async commitAll(): Promise<void> {
-		//if (!this.changedResources.resourceStates.length) {
-		//	vscode.window.showErrorMessage('There is nothing to commit.');
-		//}
-		//else if (this.fiddle.version < this.latestFiddleVersion) {
-		//	vscode.window.showErrorMessage('Checkout the latest fiddle version before committing your changes.');
-		//}
-		//else {
-		//	const html = await this.getLocalResourceText('html');
-		//	const js = await this.getLocalResourceText('js');
-		//	const css = await this.getLocalResourceText('css');
-
-		//	// here we assume nobody updated the Fiddle on the server since we refreshed the list of versions
-		//	try {
-		//		const newFiddle = await uploadFiddle(this.fiddle.slug, this.fiddle.version + 1, html, js, css);
-		//		if (!newFiddle)
-		//			return;
-
-		//		this.setFiddle(newFiddle, false);
-		//		this.jsFiddleScm.inputBox.value = '';
-		//	}
-		//	catch (ex) {
-		//		vscode.window.showErrorMessage('Cannot commit changes to JS Fiddle. ' + ex.message);
-		//	}
-		//}
 	}
 
 	public onResourceChange(_uri: vscode.Uri): void {
@@ -180,6 +153,9 @@ export class DbCodeSourceControl implements vscode.Disposable {
 		// Request file decoration provider to get new file decorations for the changed files.
 		if (changedStates.length)
 			this.decorations.requestNewFileDecorations(changedStates.map(state => state.uri));
+
+
+		console.log('something updated');
 	}
 
 	public toSourceControlResourceState(

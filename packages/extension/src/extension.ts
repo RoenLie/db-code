@@ -27,26 +27,16 @@ export async function activate(context: vscode.ExtensionContext) {
 				url.searchParams.set('subdomain', value.subdomain);
 				url.searchParams.set('path', value.path);
 
-				if (value.isNew) {
-					url.pathname = '/api/code/module/new';
-					promises.push(fetch(url, {
-						method:  'POST',
-						headers: {
-							'Content-Type': 'application/json',
-						},
-						body: JSON.stringify({ data: readFileSync(value.uri.fsPath, 'utf-8') }),
-					}));
-				}
-				else if (value.isDeleted) {
+				if (value.isDeleted) {
 					url.pathname = '/api/code/module/delete';
 					promises.push(fetch(url, {
 						method: 'DELETE',
 					}));
 				}
-				else if (value.isModified) {
-					url.pathname = '/api/code/module/update';
+				else if (value.isNew || value.isModified) {
+					url.pathname = '/api/code/module/upsert';
 					promises.push(fetch(url, {
-						method:  'PATCH',
+						method:  'PUT',
 						headers: {
 							'Content-Type': 'application/json',
 						},

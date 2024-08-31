@@ -23,7 +23,7 @@ interface AugmentedPaths extends Paths {
 }
 
 
-export const appName = 'DbCodeExplorer';
+export const appName = 'DbCode';
 export const paths = envPaths(appName) as AugmentedPaths;
 
 // Posix works for windows, and other libs like globby rely on posix paths.

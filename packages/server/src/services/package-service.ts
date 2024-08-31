@@ -59,24 +59,68 @@ export const insertPackageFromPaths = async (paths: string[]) => {
 };
 
 
+export const insertPackageContents = (
+	name: string,
+	version: string,
+	contents: {
+		path:    string;
+		content: string;
+	}[],
+) => {
+	using db = new SQLite();
+
+	const transaction = db.transaction(() => {
+		//db.exec(/* sql */`
+		//DROP TABLE IF EXISTS packages
+		//`);
+
+		db.exec(/* sql */`
+		CREATE TABLE IF NOT EXISTS packages (
+			id      INTEGER PRIMARY KEY,
+			name    TEXT DEFAULT '' NOT NULL,
+			version TEXT DEFAULT '' NOT NULL,
+			path    TEXT DEFAULT '' NOT NULL,
+			content TEXT DEFAULT '' NOT NULL
+		);
+		`);
+
+		db.prepare(/* sql */`
+		DELETE FROM packages
+		WHERE 1 = 1
+			AND name = (?)
+			AND version = (?)
+		`).run(name, version);
+
+		const insert = db.prepare(/* sql */`
+		INSERT INTO packages (name, version, path, content)
+		VALUES (?, ?, ?, ?)
+		`);
+
+		for (const file of contents)
+			insert.run(name, version, file.path, file.content);
+	});
+
+	transaction();
+};
+
 export const createPackageTree = (name: string, version: string) => {
 
 
 };
 
 
-interface Node {
+interface PkgNode {
 	name:    string;
 	version: string;
-	deps:    Node[];
+	deps:    PkgNode[];
 };
 
 
 export const createPkgNodeTree = async (name: string, version: string) => {
-	const rootNode: Node = { name, version, deps: [] };
+	const rootNode: PkgNode = { name, version, deps: [] };
 
-	const visitedNodes = new WeakSet<Node>();
-	const nodeQueue: Node[] = [ rootNode ];
+	const visitedNodes = new WeakSet<PkgNode>();
+	const nodeQueue: PkgNode[] = [ rootNode ];
 	while (nodeQueue.length) {
 		const node = nodeQueue.shift()!;
 		if (visitedNodes.has(node) && visitedNodes.add(node))
@@ -89,8 +133,11 @@ export const createPkgNodeTree = async (name: string, version: string) => {
 		if (err)
 			continue;
 
+		// update the node with the resolved version.
+		node.version = pkg.version;
+
 		for (const [ name, version ] of Object.entries(pkg.dependencies ?? {})) {
-			const newNode: Node = { name, version, deps: [] };
+			const newNode: PkgNode = { name, version, deps: [] };
 
 			node.deps.push(newNode);
 			nodeQueue.push(newNode);
@@ -102,9 +149,9 @@ export const createPkgNodeTree = async (name: string, version: string) => {
 
 
 export const createPkgDepBuckets = (
-	node: Node,
+	node: PkgNode,
 	dependencies: string[][] = [],
-	visitedNodes = new WeakSet<Node>(),
+	visitedNodes = new WeakSet<PkgNode>(),
 	depth = 0,
 ) => {
 	if (visitedNodes.has(node) && visitedNodes.add(node))
